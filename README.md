@@ -20,6 +20,10 @@ python -m tasks.a1_manager_list       # -> a1_manager_list           (the GM's b
 python -m tasks.a2_exposure           # -> a2_exposure               (+ charts/a2_rank_shift)
 python -m tasks.a3_luck               # -> a3_luck, a3_luck_monthly  (+ charts/a3_luck_z_hist)
 python -m tasks.a5_location           # -> a5_location, bank_scores, a5_game_by_zone (+ charts/a5_floor_map)
+python -m tasks.a4_leak               # -> a4_leak, a4_ticket_changes (+ charts/a4_cumulative_residual)
+python -m tasks.a6_moves              # -> a6_moves
+python -m tasks.a8_decomposition      # -> a8_decomposition          (+ charts/a8_decomposition)
+python -m tasks.a11_profit            # -> a11_profit
 pytest -q                             # all checks
 ```
 

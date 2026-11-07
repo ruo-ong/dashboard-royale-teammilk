@@ -23,6 +23,9 @@ COLORS = {
     "series_1": "#2a78d6",     # blue
     "series_2": "#eb6834",     # orange: highlight (e.g. the manager's 10)
     "series_3": "#1baf7a",     # aqua
+    "series_4": "#eda100",     # yellow   (slots 3-5 are below 3:1 contrast: keep values in hover/table)
+    "series_5": "#e87ba4",     # magenta
+    "series_6": "#008300",     # green
     "critical": "#d03b3b",     # status only, always with a label
 }
 # Sequential blue, light -> dark (magnitude: TPAH on the floor map, heatmaps).
@@ -30,7 +33,14 @@ SEQUENTIAL_BLUE = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f
 FONT = "Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif"
 
 
+def _escape_dollars(text: str) -> str:
+    """Plotly renders text between two '$' signs as a LaTeX formula; use the HTML entity instead."""
+    return text.replace("$", "&#36;")
+
+
 def style(fig: go.Figure, title: str, subtitle: str | None = None, height: int = 480) -> go.Figure:
+    title = _escape_dollars(title)
+    subtitle = _escape_dollars(subtitle) if subtitle else subtitle
     text = f"<b>{title}</b>" + (f"<br><span style='font-size:13px;color:{COLORS['text_secondary']}'>{subtitle}</span>" if subtitle else "")
     fig.update_layout(
         title={"text": text, "x": 0, "xanchor": "left", "y": 0.97, "yanchor": "top", "font": {"size": 18},
