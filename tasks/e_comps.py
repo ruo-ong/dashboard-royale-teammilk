@@ -121,6 +121,25 @@ def by_tier(led: pd.DataFrame, change: pd.Timestamp) -> pd.DataFrame:
     return g.rename(columns={"tier_before": "tier"})
 
 
+def points_liability(led: pd.DataFrame, before_ppd: float, after_ppd: float) -> pd.DataFrame:
+    """What the points members already hold could cost the casino, at the old and the new redemption rate.
+    Balances start at 0 each year (data dictionary), so the outstanding balance is the sum of all point movements."""
+    awarded = led.loc[led["event_type"] == "award", "points_delta"].sum()
+    redeemed = -led.loc[led["event_type"] == "redeem", "points_delta"].sum()
+    outstanding = led["points_delta"].sum()
+    rd = led[led["event_type"] == "redeem"]
+    cost_ratio = rd["economic_cost_cents"].sum() / rd["face_value_cents"].sum()   # cost to the house per $ of menu value
+    face_before, face_after = outstanding / before_ppd, outstanding / after_ppd
+    share = redeemed / awarded
+    return pd.DataFrame([{
+        "points_awarded": awarded, "points_redeemed": redeemed, "points_outstanding": outstanding, "redeemed_share": share,
+        "points_per_comp_dollar_before": before_ppd, "points_per_comp_dollar_after": after_ppd, "cost_per_face_dollar": cost_ratio,
+        "face_value_before_usd": face_before, "face_value_after_usd": face_after,
+        "cost_if_all_redeemed_before_usd": face_before * cost_ratio, "cost_if_all_redeemed_after_usd": face_after * cost_ratio,
+        "extra_cost_if_all_redeemed_usd": (face_after - face_before) * cost_ratio,
+        "extra_cost_at_observed_redemption_usd": (face_after - face_before) * cost_ratio * share}])
+
+
 def change_impact(w: pd.DataFrame, change: pd.Timestamp) -> pd.DataFrame:
     full = w[w["full_week"]]
     change_week = change - pd.Timedelta(days=change.day_of_week)
@@ -195,6 +214,8 @@ def main() -> None:
                                              "median_system_lag_h": lag.median(), "max_system_lag_h": lag.max()}]))
     tiers = by_tier(led, change)
     write_output("e3_by_tier", tiers)
+    liability = points_liability(led, before_v, after_v)
+    write_output("e3_points_liability", liability)
     impact = change_impact(w, change)
     write_output("e4_change_impact", impact)
     te = tier_economics(months_in(args.start, args.end))
@@ -212,6 +233,10 @@ def main() -> None:
     print(f"   city visitors {i['city_visitors_change_pct']:+.1%}; theo net of city ${i['theo_change_net_of_city_per_week_usd']:,.0f}/wk "
           f"(${i['theo_change_net_of_city_low_usd']:,.0f} to ${i['theo_change_net_of_city_high_usd']:,.0f}) vs extra comp cost "
           f"${i['extra_comp_cost_per_week_usd']:,.0f}/wk -> {i['verdict']}")
+    L = liability.iloc[0]
+    print(f"   points liability: {L['points_outstanding']:,.0f} points outstanding; cost if all redeemed "
+          f"${L['cost_if_all_redeemed_before_usd']:,.0f} -> ${L['cost_if_all_redeemed_after_usd']:,.0f}; at the observed "
+          f"redemption share ({L['redeemed_share']:.1%}) the extra cost is ${L['extra_cost_at_observed_redemption_usd']:,.0f}")
     print("E5\n" + te.to_string(index=False, float_format=lambda v: f"{v:,.3f}"))
 
 

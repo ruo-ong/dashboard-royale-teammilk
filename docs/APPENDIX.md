@@ -1,7 +1,7 @@
 # Claims & Evidence appendix
 
 Team Milk · Dashboard Royale (The Gilded Ace is fictional; its data is synthetic).
-Generated from `docs/claims_log.csv` by `python -m tasks.s1_appendix`: 35 claims.
+Generated from `docs/claims_log.csv` by `python -m tasks.s1_appendix`: 36 claims.
 Every table named below is built by `python -m tasks.run_all` into `outputs/`.
 
 ## Data notes and foundations
@@ -100,13 +100,13 @@ Most low peer-index machines are low-hold games that people play normally, not u
 
 ### A5-03 · finding
 
-Comet Cash is weak wherever it stands: all 7 machines read as 'machine' (low theo AND low play vs neighbours) are Comet Cash, across 5 zones, played 76-80% as much as their neighbours. That points to replacing the game, not moving the machine.
+Comet Cash is the one game played less than its neighbours in both halves of the year: 0.81x in Jan-Mar and 0.82x in Apr-Jun (75% of its 24 machines below 0.85x). That is a game-title question, not a single-machine one.
 
-- **Table / query:** `a5_location where location_read = 'machine'`
-- **Result:** M-1173, M-1139, M-1262, M-1274, M-1179, M-1300, M-1155; peer index 0.56-0.66
-- **Alternative explanation tested:** Location: the pattern holds in Bar Row, Center Pit, Main Entrance, Hotel Corridor and Back Forty, so it is not one weak spot
-- **Limitation:** M-1265 (Comet Cash, Back Forty) sits on the threshold (volume 0.801) and reads 'low-hold game'; treat as borderline
-- **Status:** to confirm in A9 · **Dashboard:** Machine trial page: verdict table; $100k plan (R3c)
+- **Table / query:** `a9_game_review (A5 peer comparison by game, whole period and each half)`
+- **Result:** Every other game is at or above 0.92x in both halves
+- **Alternative explanation tested:** Location: the comparison is with same-bank neighbours over the same days, in every zone where the game stands
+- **Limitation:** Volume relative to neighbours, not absolute; replacing a title has costs beyond this budget
+- **Status:** verified · **Dashboard:** Machine review: Game title review
 
 ### A4-01 · inspection lead
 
@@ -160,13 +160,13 @@ No machine loses money with average luck: every machine's theo exceeds its suppl
 
 ### A9-01 · finding
 
-Only 1 of the manager's 10 is a real replacement candidate. The others: Location 4, Watch list 2, Low-hold game 2, Inspect 1, Truly weak 1. Our list is the 7 'Truly weak' machines, all Comet Cash: replace the title, not one machine.
+None of the manager's 10 is clearly weak because of the machine itself. M-1179 is borderline (play 0.78x its neighbours, close to the 0.75-0.85 band) and should be reviewed again; the rest are explained by location (the largest single cause, 37% of the $553,702 combined shortfall), the game's payback setting, short time on the floor, or a payout pattern to inspect.
 
-- **Table / query:** `machine_verdicts, a9_list_comparison`
-- **Result:** Each verdict from the exact A8 decomposition, with the A4 lead and A2 evidence rules first
-- **Alternative explanation tested:** Closure zone and chronic faults kept as secondary flags
-- **Limitation:** Thresholds (0.7 / 0.8 / 60 days) to be locked at Gate 1
-- **Status:** verified · **Dashboard:** Machine trial page; Summary
+- **Table / query:** `machine_verdicts, a9_list_comparison, a8_decomposition`
+- **Result:** Verdict for M-1179 is 'Borderline' in Jan-Jun, Jan-Mar and Apr-Jun (it changed from 'Truly weak' only because it sat on a single cut-off)
+- **Alternative explanation tested:** Period sensitivity tested: verdicts recomputed for Jan-Mar, Apr-Jun and Feb-May; the closure is not blamed on machines because each is compared with same-bank neighbours over the same days
+- **Limitation:** Thresholds (0.7 peer index; 0.75-0.85 borderline band; 60 days) are judgement calls, now with a band rather than a single cut-off
+- **Status:** verified · **Dashboard:** Summary; Machine review
 
 ## Q2 · Demand
 
@@ -336,17 +336,27 @@ We can't tell yet whether the May 1 comp change paid for itself: in the 8 weeks 
 - **Limitation:** Only 8 weeks after; a pilot with a control group would answer it
 - **Status:** verified · **Dashboard:** Comps page
 
+### E-03 · finding
+
+The May 1 change raised the potential cost of points members already hold: 156 million unredeemed points would cost $7,561,306 if all were redeemed at the new rate, against $3,333,427 at the old rate; at the 4.4% redemption rate seen so far, about $185,350 more.
+
+- **Table / query:** `e3_points_liability (loyalty_ledger: points awarded minus redeemed; cost per menu dollar from redemptions)`
+- **Result:** 163.6M points awarded, 7.2M redeemed in Jan-Jun
+- **Alternative explanation tested:** Upper bound (all redeemed) and a lower guide (redemption rate so far) both reported
+- **Limitation:** Future redemption rates are unknown; balances reset each year
+- **Status:** verified · **Dashboard:** Loyalty rewards; Recommended actions
+
 ## Forecast model
 
 ### M-01 · finding
 
-On a frozen time split, the weekday-average forecast was chosen in April (MAE $40,715); on May-June it misses daily coin-in by $68,699 on average (5.0%) vs $218,258 for a constant mean. Its July forecast sizes the promotion benefit and is the baseline the promotion will be measured against.
+The day-of-week forecast (chosen in April, tested once on May-June) misses daily coin-in by about 5%. On ordinary weekends it was off by -5.5% (normal range ±4%), so an 18% promotion lift is detectable but a 6% lift is not. It changes how success is judged: against a flat average an ordinary weekend already looks +12% better.
 
-- **Table / query:** `forecast_results, m4_metrics, docs/MODEL_PROTOCOL.md (committed before the model), docs/MODEL.md`
+- **Table / query:** `forecast_results, m4_metrics, m5_decision, docs/MODEL_PROTOCOL.md (committed before the model)`
 - **Result:** see claim
-- **Alternative explanation tested:** Two richer candidates lost in April (trend over-extrapolated) and would also have lost on May-June
-- **Limitation:** Bias +39,286/day in May-June (June demand fell)
-- **Status:** verified · **Dashboard:** Model page
+- **Alternative explanation tested:** Two richer candidates lost in April; weekend error measured on the 7 ordinary (no-event) weekends of May-June
+- **Limitation:** Few test weekends; June demand fell, so forecasts ran high
+- **Status:** verified · **Dashboard:** Business forecast
 
 ### M6-01 · finding
 
@@ -362,13 +372,13 @@ A machine's expected win per available hour can be estimated from its bank, game
 
 ### R-01 · recommendation
 
-Fund: Machine inspection and paytable verification x1 ($1,200); Relocate one machine x3 ($5,400); Property promotion weekend x2 ($30,000); keep $63,400. Expected net theo $84,144 at the mid estimate.
+Fund: Comp policy pilot with control group x1 ($4,000); Machine inspection and paytable verification x1 ($1,200); Property promotion weekend x1 ($15,000); keep $79,800. One promotion weekend (Jul 18-20) with Jul 25-27 as the comparison weekend. Most likely July net $37,749; value of information after July $139,942.
 
-- **Table / query:** `portfolio, r3_benefits, r5_sensitivity, r6_measurement, r7_tradeoffs`
-- **Result:** Every action type priced and estimated; best combination of up to 3 types searched exhaustively
-- **Alternative explanation tested:** Promotion and moves are slightly negative at their low estimates (r5_sensitivity)
-- **Limitation:** Benefits are theo estimates from six months of synthetic data
-- **Status:** verified · **Dashboard:** $100k plan page
+- **Table / query:** `portfolio, r3_benefits (info_value columns), r5_sensitivity, r6_measurement, r7_tradeoffs`
+- **Result:** Exhaustive search of up to 3 action types within $100k, scored by July net benefit plus the value of information for the two information actions
+- **Alternative explanation tested:** Moving machines ranked next (+$2,912 July, -$5,480 low) and was not funded; two promotion weekends rejected to keep a comparison weekend and avoid cannibalisation
+- **Limitation:** Information values rest on stated probabilities (25/50/75%, 25/60/90%) and on how many issued points are redeemed
+- **Status:** verified · **Dashboard:** Recommended actions
 
 ## AI-use disclosure
 

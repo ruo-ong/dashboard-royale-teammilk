@@ -30,10 +30,12 @@ def render() -> None:
     w = out("comp_weekly")
     header("Loyalty Rewards", "The cost of complimentary food and drink, the change made on May 1, and its effect so far")
     tracked_label()
+    L = out("e3_points_liability").iloc[0]
     kpis([tile("Cost of rewards, Jan–Jun", money(s["comp_cost_usd"].sum()), f"menu value {money(s['comp_face_value_usd'].sum())}", "redeem", "purple"),
           tile("Points needed per reward dollar", f"{chg['before']:.1f} → {chg['after']:.1f}", f"changed {change:%B %-d}, all levels", "swap_vert", "orange"),
           tile("Extra cost per week since", money(i0["extra_comp_cost_per_week_usd"]), "8 weeks after vs 8 before", "add_card", "red"),
-          tile("Has it paid for itself?", "Not yet known", "no comparison group", "help", "grey")])
+          tile("Points already issued: extra cost", money(L["extra_cost_if_all_redeemed_usd"]),
+               f"if all redeemed; {money(L['extra_cost_at_observed_redemption_usd'])} at today's redemption rate", "account_balance_wallet", "purple")])
     more_text = (
         f"Members redeemed loyalty points for complimentary food and drink costing the casino **{money(s['comp_cost_usd'].sum())}** "
         f"between January and June (menu value {money(s['comp_face_value_usd'].sum())}). This is "
@@ -51,7 +53,10 @@ def render() -> None:
         f"On **{change:%B %-d}**, points needed per reward dollar fell from {chg['before']:.1f} to {chg['after']:.1f} ({pct(chg['change_pct'], 0, True)}), for all members.",
         f"Since then, rewards cost **{money(i0['extra_comp_cost_per_week_usd'])} more per week**.",
         "Whether the change paid for itself is **not yet known**: the effect on play could be a gain or a loss.",
-        "A trial with a comparison group of members would settle the question."
+        f"Members hold **{L['points_outstanding'] / 1e6:,.0f} million** unredeemed points. At the new rate they could cost up to "
+        f"**{money(L['cost_if_all_redeemed_after_usd'])}** if all were redeemed, against {money(L['cost_if_all_redeemed_before_usd'])} before "
+        f"(about **{money(L['extra_cost_at_observed_redemption_usd'])}** more at the {pct(L['redeemed_share'], 1)} redemption rate seen so far).",
+        "A trial with a comparison group of members is included in the recommended actions."
     ], more=more_text)
     a, b = st.columns(2)
     with a:
@@ -78,5 +83,8 @@ def render() -> None:
               column_config={"change_pct": st.column_config.NumberColumn("change", format="percent")}
               | {c: st.column_config.NumberColumn(format="localized") for c in ["mean_before", "mean_after", "change_low", "change_high"]})
         table(out("e3_breaks"))
+        st.markdown("Points already issued, valued at the old and the new rate (cost to the casino = menu value × cost per menu dollar):")
+        table(out("e3_points_liability"))
+        evidence("E-03")
         st.markdown("Reward economics by membership level (level at the end of the period):")
         table(out("e5_tier_economics"))

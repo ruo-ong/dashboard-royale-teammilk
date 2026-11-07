@@ -9,8 +9,10 @@ Verdict = the largest negative piece of the A8 decomposition, with these overrid
   Watch list          fewer than 60 days on the floor: not enough evidence for a verdict
   Fine                earned at least as much as a typical machine
   Short time on floor / Downtime / Location / Unlucky    the largest negative piece
-  Truly weak          largest piece is the machine itself AND peer index < 0.7 AND play volume < 0.8 x peers
-  Low-hold game       largest piece is the machine itself, but players use it as much as its neighbours (A5):
+  Truly weak          largest piece is the machine itself AND peer index < 0.7 AND play volume clearly low (< 0.75 x peers)
+  Borderline          largest piece is the machine itself, play volume 0.75-0.85 x peers: close enough to the cut-off
+                      that the finding depends on the period chosen, so review again rather than act
+  Low-hold game       largest piece is the machine itself, but players use it as much as its neighbours (> 0.85 x):
                       its low theo is the game's payback setting, a pricing choice, not a broken machine
 If the machine piece does not meet "Truly weak", the next-largest negative piece decides.
 Secondary flags keep the other evidence visible (chronic faults, closure zone, thin peer group, ...).
@@ -27,7 +29,7 @@ from tasks import a2_exposure, a4_leak, a5_location, a8_decomposition
 from tasks.a1_manager_list import manager_ten
 
 WEAK_PEER_INDEX = 0.70
-WEAK_VOLUME_INDEX = 0.80
+BORDERLINE_VOLUME = (0.75, 0.85)   # play volume vs neighbours: below = weak, inside = borderline, above = low-hold game
 GAME_WEAK_EVERYWHERE = 0.80   # the game's floor-wide TPAH below 80% of the median machine's
 
 PIECE_VERDICT = {"short_exposure_usd": "Short time on floor", "downtime_usd": "Downtime",
@@ -41,6 +43,7 @@ ADVICE = {
     "Location": "Do not replace; the spot is the problem (move it, or improve the zone).",
     "Unlucky": "Keep; ordinary bad luck, no action.",
     "Low-hold game": "Keep; players use it as much as its neighbours. Its low theo is the game's payback setting.",
+    "Borderline": "Review again: its play is close to the cut-off, so the finding depends on the period; decide as part of a review of its game title.",
     "Truly weak": "Replace candidate.",
 }
 
@@ -78,10 +81,12 @@ def compute(base: pd.DataFrame, start=None, end=None, chronic: pd.DataFrame | No
                 break
             if col != "machine_itself_usd":
                 return PIECE_VERDICT[col], col
-            if r["low_hold_game"]:
-                return "Low-hold game", col
-            if r["peer_index"] < WEAK_PEER_INDEX and r["volume_peer_index"] < WEAK_VOLUME_INDEX:
+            vol = r["volume_peer_index"]
+            if r["peer_index"] < WEAK_PEER_INDEX and vol < BORDERLINE_VOLUME[0]:
                 return "Truly weak", col
+            if vol <= BORDERLINE_VOLUME[1]:
+                return "Borderline", col
+            return "Low-hold game", col
         return "Fine", ""
 
     decided = v.apply(decide, axis=1, result_type="expand")
@@ -99,6 +104,8 @@ def compute(base: pd.DataFrame, start=None, end=None, chronic: pd.DataFrame | No
             core = f"earned {money(r['gap_usd'])} vs a typical machine" if r["gap_usd"] >= 0 else "no piece clearly to blame"
         else:
             label = "machine itself" if r["deciding_piece"] == "machine_itself_usd" else PIECE_VERDICT[r["deciding_piece"]].lower()
+            if r["verdict"] == "Borderline":
+                label = "machine itself (borderline)"
             core = f"{label} {money(r[r['deciding_piece']])} (overall gap vs a typical machine {money(r['gap_usd'])})"
             if r["deciding_piece"] == "machine_itself_usd":
                 core += f"; peer index {r['peer_index']:.2f}, play volume {r['volume_peer_index']:.2f}x its neighbours"
@@ -133,11 +140,34 @@ def list_comparison(verdicts: pd.DataFrame, manager_ids: list[str]) -> pd.DataFr
     rows = []
     for mid in manager_ids:
         r = verdicts.set_index("machine_id").loc[mid]
-        status = "stays" if r["on_our_list"] else "drops"
+        status = "stays" if r["on_our_list"] else ("review" if r["verdict"] == "Borderline" else "drops")
         rows.append({"machine_id": mid, "status": status, "verdict": r["verdict"], "why": r["reason"], "advice": r["advice"]})
     for _, r in verdicts[verdicts["on_our_list"] & ~verdicts["in_manager_10"]].sort_values("replace_rank").iterrows():
         rows.append({"machine_id": r["machine_id"], "status": "new", "verdict": r["verdict"], "why": r["reason"], "advice": r["advice"]})
     return pd.DataFrame(rows)
+
+
+def game_review(start=None, end=None, manager_ids: list[str] | None = None) -> pd.DataFrame:
+    """Game-level check that does not depend on any one machine or cut-off: how much each game is played compared
+    with its neighbours, over the whole period and in each half. A title played less everywhere, in both halves,
+    is a candidate for replacement as a title."""
+    ids = manager_ten() if manager_ids is None else manager_ids
+    base = load_base(start, end)
+    dates = sorted(base["gaming_date"].unique())
+    mid = dates[len(dates) // 2]
+    parts = {"whole": base, "first_half": base[base["gaming_date"] < mid], "second_half": base[base["gaming_date"] >= mid]}
+    out = None
+    for name, b in parts.items():
+        loc = a5_location.compute(b, ids)[0]
+        g = loc.groupby("theme").agg(machines=("machine_id", "size"), volume_vs_neighbours=("volume_peer_index", "mean"),
+                                     expected_win_vs_neighbours=("peer_index", "mean"),
+                                     share_below_085=("volume_peer_index", lambda x: (x < BORDERLINE_VOLUME[1]).mean()))
+        g.columns = [f"{c}_{name}" if c != "machines" or name != "whole" else c for c in g.columns]
+        out = g if out is None else out.join(g.drop(columns=[c for c in g.columns if c.startswith("machines")], errors="ignore"))
+    out = out.reset_index()
+    out["played_less_in_both_halves"] = (out["volume_vs_neighbours_first_half"] < BORDERLINE_VOLUME[1]) & \
+                                        (out["volume_vs_neighbours_second_half"] < BORDERLINE_VOLUME[1])
+    return out.sort_values("volume_vs_neighbours_whole").reset_index(drop=True)
 
 
 def main() -> None:
@@ -151,6 +181,11 @@ def main() -> None:
     write_output("machine_verdicts", verdicts)
     comp = list_comparison(verdicts, ids)
     write_output("a9_list_comparison", comp)
+    games = game_review(args.start, args.end, ids)
+    write_output("a9_game_review", games)
+    print("Games by play volume vs neighbours (whole / first half / second half):")
+    print(games[["theme", "machines", "volume_vs_neighbours_whole", "volume_vs_neighbours_first_half",
+                 "volume_vs_neighbours_second_half", "played_less_in_both_halves"]].to_string(index=False, float_format=lambda v: f"{v:.3f}"))
 
     print("Floor-wide verdicts:", verdicts["verdict"].value_counts().to_dict())
     print("\nThe manager's 10:")
