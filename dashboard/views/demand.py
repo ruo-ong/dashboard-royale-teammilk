@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from common import date_range, evidence, money, out, pct, table, zone_bank_filter
-from ui import BLUE, LIGHT_BLUE, card, detail, header, kpis, plot, section, summary, tile
+from ui import BLUE, LIGHT_BLUE, card, detail, header, key_points, kpis, plot, section, summary, tile
 
 
 def _in(df, col="gaming_date"):
@@ -76,7 +76,12 @@ def render() -> None:
     c = out("closure_effect").iloc[0]
     ctx = out("b6_context")
     header("Visitor Demand", "How the level of play changed across the floor over the six months, and the reasons for the changes")
-    summary(
+    first, last = monthly.iloc[0], monthly.iloc[-1]
+    kpis([tile("Average wagered per day, June", money(last["coin_in_per_day"], 2), f"January: {money(first['coin_in_per_day'], 2)}", "payments", "blue"),
+          tile("Change, January to June", pct(last["coin_in_per_day"] / first["coin_in_per_day"] - 1, 1, True), "amount wagered per day", "trending_flat", "purple"),
+          tile("Back Forty during the closure", pct(c["did_pct"], 0, True), "play, relative to the rest of the floor", "do_not_disturb_on", "orange"),
+          tile("Expected win lost to the closure", money(c["theo_lost_usd"]), f"range {money(c['theo_lost_low_usd'])}–{money(c['theo_lost_high_usd'])}", "money_off", "red")])
+    more_text = (
         "Overall business was stable. The average amount wagered per day was "
         f"{money(monthly['coin_in_per_day'].iloc[0], 2)} in January and {money(monthly['coin_in_per_day'].iloc[-1], 2)} in June, and "
         "the casino's level of business followed the number of visitors to Las Vegas closely.\n\n"
@@ -87,18 +92,18 @@ def render() -> None:
         "close to its earlier level after the walkway reopened, although the Back Forty remains the quietest area of the floor.\n\n"
         "Major sporting and festival weekends in the city increased play by 15% to 23%, and the casino's own promotion weekend "
         "increased it by 18%. Large conventions had no measurable effect.")
-    first, last = monthly.iloc[0], monthly.iloc[-1]
-    kpis([tile("Average wagered per day, June", money(last["coin_in_per_day"], 2), f"January: {money(first['coin_in_per_day'], 2)}", "payments", "blue"),
-          tile("Change, January to June", pct(last["coin_in_per_day"] / first["coin_in_per_day"] - 1, 1, True), "amount wagered per day", "trending_flat", "purple"),
-          tile("Back Forty during the closure", pct(c["did_pct"], 0, True), "play, relative to the rest of the floor", "do_not_disturb_on", "orange"),
-          tile("Expected win lost to the closure", money(c["theo_lost_usd"]), f"range {money(c['theo_lost_low_usd'])}–{money(c['theo_lost_high_usd'])}", "money_off", "red"),
-          tile("Busiest day of the week", "Saturday", "1.3 times an average day", "event", "green")])
+    key_points([
+        f"Business was **stable**: {money(monthly['coin_in_per_day'].iloc[0], 2)} wagered per day in January, {money(monthly['coin_in_per_day'].iloc[-1], 2)} in June.",
+        "The casino **followed Las Vegas visitor numbers** closely.",
+        f"The **Back Forty walkway closure** (Mar 3 – Apr 6) reduced play there by about **{pct(abs(c['did_pct']))}**, costing about {money(c['theo_lost_usd'])}.",
+        "**City sports and festival weekends** lifted play by 15–23%; our own promotion by **18%**. Conventions had no effect."
+    ], more=more_text)
 
     with card("Amount wagered across the floor, by day", "Daily totals with the seven-day average"):
         plot(trend(), legend_top=True)
     a, b = st.columns(2)
     with a:
-        with card("Effect of events on the amount wagered", "Compared with the same weekday in the surrounding weeks. Dark blue: the casino's own promotions."):
+        with card("Effect of events on the amount wagered", "Compared with the same weekday in the surrounding weeks. Purple: the casino's own promotions."):
             plot(events_fig())
     with b:
         with card("Expected win per available hour, by area", "For the period and areas selected. The Back Forty is highlighted."):

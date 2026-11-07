@@ -1,8 +1,4 @@
-"""Shared app shell for both versions of the report: page setup, sidebar navigation and filters, first-run build.
-
-Version 1 (dashboard/app.py):    the report.
-Version 2 (dashboard/app_v2.py): the report plus the machine estimator.
-"""
+"""App shell: page setup, sidebar brand, navigation and filters, and the first-run build of outputs/."""
 from __future__ import annotations
 
 import os
@@ -21,9 +17,10 @@ import ui  # noqa: E402
 from royale.outputs import output_path  # noqa: E402
 
 
-def run(include_estimator: bool) -> None:
+def run(include_estimator: bool = True) -> None:
     st.set_page_config(page_title="The Gilded Ace: Floor Performance Review", page_icon=":material/casino:", layout="wide")
     ui.inject_css()
+    st.logo(str(Path(__file__).resolve().parent / "assets" / "logo.svg"), size="large")
     needed = "m6_settings" if include_estimator else "portfolio"
     if not output_path(needed).exists() or not output_path("portfolio").exists():
         with st.spinner("Preparing the report from the source data for the first time. This takes about one minute."):
@@ -34,7 +31,7 @@ def run(include_estimator: bool) -> None:
 
     from views import comps, demand, downtime, machines, methods, model, plan, players, summary
     pages = {
-        "summary": st.Page(summary.render, title="Summary and recommendation", icon=":material/description:", default=True),
+        "summary": st.Page(summary.render, title="Summary", icon=":material/description:", default=True),
         "plan": st.Page(plan.render, title="Recommended actions", icon=":material/payments:", url_path="plan"),
         "machines": st.Page(machines.render, title="Machine review", icon=":material/fact_check:", url_path="machines"),
         "demand": st.Page(demand.render, title="Visitor demand", icon=":material/trending_up:", url_path="demand"),
@@ -45,12 +42,12 @@ def run(include_estimator: bool) -> None:
         "methods": st.Page(methods.render, title="Methods and evidence", icon=":material/menu_book:", url_path="methods"),
     }
     groups = {"Overview": [pages["summary"], pages["plan"]],
-              "Findings": [pages["machines"], pages["demand"], pages["downtime"], pages["players"], pages["comps"]],
-              "Supporting material": [pages["model"], pages["methods"]]}
+              "Findings": [pages["machines"], pages["demand"], pages["downtime"], pages["players"], pages["comps"]]}
     if include_estimator:
         from views import estimator
         pages["estimator"] = st.Page(estimator.render, title="Machine estimator", icon=":material/calculate:", url_path="estimator")
         groups["Tools"] = [pages["estimator"]]
+    groups["Supporting material"] = [pages["model"], pages["methods"]]
     common.PAGES.update(pages)
     nav = st.navigation(groups)
 
@@ -67,5 +64,5 @@ def run(include_estimator: bool) -> None:
         st.divider()
         st.caption("The Gilded Ace is a fictional casino and its records are synthetic. Las Vegas tourism, weather and Missouri "
                    "figures are real public data. Prepared by Team Milk for the TAMU Datathon (Dashboard Royale)."
-                   + (" Version 2: includes the machine estimator." if include_estimator else ""))
+)
     nav.run()

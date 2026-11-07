@@ -2,7 +2,7 @@
 import streamlit as st
 
 from common import ROOT, claims, table
-from ui import card, header, summary
+from ui import card, header, key_points, summary
 
 TERMS = [
     ("Amount wagered (coin-in)", "The total value of all bets placed on a machine, including winnings that were bet again."),
@@ -35,13 +35,19 @@ LIMITS = [
 def render() -> None:
     header("Methods and Evidence", "Terms used in this report, how the figures were produced, their limitations, and the evidence log",
            chip="Reference")
-    summary(
+    more_text = (
         "Every figure in this report is calculated by code kept with the report, from the records supplied for January 1 to "
         "June 30, 2025. The calculations are checked automatically: totals are reconciled with the source records, the forecast is "
         "checked for any use of information that would not have been available at the time, and the budget plan is checked against "
         "the price list and its limits.\n\n"
         "Each finding in the report is recorded in an evidence log, which states the data used, the result, the alternative "
         "explanations that were considered and the limitations. The log is reproduced in full below.")
+    key_points([
+        "Every figure is calculated by code kept with this report, from the records for **January 1 – June 30, 2025**.",
+        "Totals are **reconciled automatically** with the source records.",
+        "The forecast is checked for any use of information **not available at the time**.",
+        "Each finding is recorded in the **evidence log** below, with its data, result, alternatives considered and limitations."
+    ], more=more_text)
     t1, t2, t3, t4 = st.tabs(["Terms used in this report", "Limitations", "Evidence log", "How to reproduce, and use of AI"])
     with t1:
         for term, meaning in TERMS:
@@ -66,4 +72,4 @@ def render() -> None:
             "checked by automated tests, and reviewed by the team. Each team member records their own use in the appendix.")
         st.markdown(
             "**Reproducing the report.** From the repository folder:\n```sh\npip install -r requirements.txt\npython -m tasks.run_all\n"
-            "pytest -q\nstreamlit run dashboard/app.py      # version 1\nstreamlit run dashboard/app_v2.py   # version 2, with the machine estimator\n```")
+            "pytest -q\nstreamlit run dashboard/app.py\n```")

@@ -6,7 +6,7 @@ import streamlit as st
 
 from common import date_range, evidence, money, out, pct, table, tracked_label
 from tasks import d_players
-from ui import BLUE, LIGHT_BLUE, card, detail, header, kpis, plot, section, summary, tile
+from ui import BLUE, LIGHT_BLUE, card, detail, header, key_points, kpis, plot, section, summary, tile
 
 DIMS = {"age_band": "Age group", "home_region": "Home region", "opening_tier": "Membership level on January 1", "tier_end": "Membership level at the end"}
 
@@ -39,7 +39,11 @@ def render() -> None:
     theo = g["theo_usd"].to_numpy()
     top10 = np.sort(theo)[::-1][: max(1, int(0.1 * len(theo)))].sum() / theo.sum()
 
-    summary(
+    kpis([tile("Amount wagered", money(g["tracked_coin_in_usd"].sum()), "by these members", "payments", "blue"),
+          tile("Members' net result", money(g["tracked_net_usd"].sum()), "negative = the members lost", "account_balance_wallet", "orange"),
+          tile("Members who finished ahead", pct(g["ahead"].mean(), 1), f"of {len(g):,} members", "emoji_events", "yellow"),
+          tile("Typical member's result", money(g["tracked_net_usd"].median()), "median", "person", "teal")])
+    more_text = (
         f"For the selected members and months ({', '.join(months)}), **{len(g):,} members** played on a loyalty card. Together they "
         f"wagered {money(g['tracked_coin_in_usd'].sum())} and received {money(g['tracked_payout_usd'].sum())} back in payouts, so as a "
         f"group they lost {money(-g['tracked_net_usd'].sum())}. The typical (median) member finished {money(g['tracked_net_usd'].median())}, "
@@ -48,15 +52,16 @@ def render() -> None:
            f"compared with {pct(dec['share_ahead'].iloc[-1])} of the heaviest. This is the expected effect of chance, which evens out "
            "over a larger amount of play. " if dec is not None else "")
         + f"Results are concentrated: the most active 10% of members account for {pct(top10)} of the expected win from member play.")
-    kpis([tile("Amount wagered", money(g["tracked_coin_in_usd"].sum()), "by these members", "payments", "blue"),
-          tile("Received back", money(g["tracked_payout_usd"].sum()), "in payouts", "redeem", "purple"),
-          tile("Members' net result", money(g["tracked_net_usd"].sum()), "negative = the members lost", "account_balance_wallet", "orange"),
-          tile("Members who finished ahead", pct(g["ahead"].mean(), 1), f"of {len(g):,} members", "emoji_events", "yellow"),
-          tile("Typical member's result", money(g["tracked_net_usd"].median()), "median", "person", "teal")])
+    key_points([
+        f"**{len(g):,} members** played on a card; together they wagered {money(g['tracked_coin_in_usd'].sum())} and lost {money(-g['tracked_net_usd'].sum())}.",
+        f"**{pct(g['ahead'].mean(), 1)} finished ahead**; the typical member's result was {money(g['tracked_net_usd'].median())}.",
+        *([f"Light players finish ahead more often than heavy players ({pct(dec['share_ahead'].iloc[0])} vs {pct(dec['share_ahead'].iloc[-1])})."] if dec is not None else []),
+        f"The most active **10%** of members account for **{pct(top10)}** of expected win from member play."
+    ], more=more_text)
 
     a, b = st.columns(2)
     with a:
-        with card("How members' results were distributed", "Number of members by net result. Dark blue: lost. Light blue: won."):
+        with card("How members' results were distributed", "Number of members by net result. Purple: lost. Light blue: won."):
             edges = [-np.inf, -5000, -1000, -500, -250, -100, -50, -10, 0, 10, 50, 100, 250, 500, 1000, np.inf]
             labels = ["< −$5k", "−$5k to −$1k", "−$1k to −$500", "−$500 to −$250", "−$250 to −$100", "−$100 to −$50", "−$50 to −$10",
                       "−$10 to $0", "$0 to $10", "$10 to $50", "$50 to $100", "$100 to $250", "$250 to $500", "$500 to $1k", "> $1k"]

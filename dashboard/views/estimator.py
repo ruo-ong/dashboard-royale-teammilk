@@ -1,11 +1,11 @@
-"""Machine estimator (version 2 only): estimate how a machine with given characteristics would be expected to perform."""
+"""Machine estimator: estimate how a machine with given characteristics would be expected to perform."""
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
 from common import evidence, money, out, pct, table
 from tasks.m6_machine_model import estimate
-from ui import BLUE, LIGHT_BLUE, card, detail, header, kpis, plot, section, summary, tile
+from ui import BLUE, LIGHT_BLUE, card, detail, header, key_points, kpis, plot, section, summary, tile
 
 LEASE = {"owned": "Owned by the casino", "leased_fixed": "Leased, fixed daily fee", "leased_revenue_share": "Leased, share of winnings"}
 
@@ -24,10 +24,10 @@ def render() -> None:
     profit = out("a11_profit").set_index("machine_id")
     exposure = out("a2_exposure").set_index("machine_id")
 
-    header("Machine Estimator", "Estimate the expected earnings of a machine before placing, moving or replacing it", chip="Version 2 tool")
+    header("Machine Estimator", "Estimate the expected earnings of a machine before placing, moving or replacing it", chip="Planning tool")
     est_row = val.iloc[0]
     bank_row = val[val["method"].str.contains("bank")].iloc[0]
-    summary(
+    more_text = (
         "This tool estimates how much a machine would be expected to earn, given its game, its position on the floor, its "
         "manufacturer and its lease arrangement. It can be used to compare options before a machine is placed, moved or replaced. "
         "You may start from a machine already on the floor and change one characteristic at a time, for example its location.\n\n"
@@ -39,6 +39,12 @@ def render() -> None:
         "likely range of that variation is shown below. Estimates for combinations that do not exist on the floor today (for example, "
         "a game that has never stood in a given area) rely on the separate effects of the game and the location and should be "
         "treated with additional caution.")
+    key_points([
+        "Estimates how much a machine would **earn per working hour**, from its game, location, manufacturer and ownership.",
+        "Start from a machine on the floor and change one thing (for example its location), or describe a new machine.",
+        f"Tested on May–June: average error **{money(est_row['mae_per_hour_usd'], 2)} per hour** ({pct(est_row['mape'], 1)}), against {money(bank_row['mae_per_hour_usd'], 2)} using the bank average.",
+        "Shows earnings **before luck**, and the likely range once luck is included."
+    ], more=more_text)
 
     with st.container(key="card_inputs"):
         st.markdown('<div class="card-t">Describe the machine</div><div class="card-s">All results update as you change the inputs</div>',
@@ -71,7 +77,7 @@ def render() -> None:
                           help="The share of the period the machine is expected to be working. The floor median is 0.997 (99.7%).")
         c1, c2 = st.columns(2)
         days = c1.slider("Length of the period (days)", 7, 90, 30)
-        july = c2.checkbox("Adjust for the expected level of business in July (from the business forecast)", value=True)
+        july = c2.checkbox("Adjust for expected July business", value=True, help="Uses the business forecast for July 1–30.")
 
     e = estimate(game, bank, maker, lease, avail, days, july)
     floor_tpah = out("machine_verdicts")["tpah"]
@@ -84,7 +90,8 @@ def render() -> None:
     kpis([tile("Expected win per working hour", money(e["tpah"], 2), f"range {money(e['tpah_low'], 2)}–{money(e['tpah_high'], 2)}", "schedule", "blue"),
           tile(f"Expected win over {days} days", money(e["expected_win"]), f"range {money(e['expected_win_low'])}–{money(e['expected_win_high'])}", "payments", "green"),
           tile("Likely result including luck", f"{money(e['house_win_low'])}–{money(e['house_win_high'])}", "in about 19 periods out of 20", "casino", "purple"),
-          tile("Running costs", money(e["total_costs"]), f"lease, service, power, repairs ({days} days)", "receipt_long", "orange"),
+          ])
+    kpis([tile("Running costs", money(e["total_costs"]), f"lease, service, power, repairs ({days} days)", "receipt_long", "orange"),
           tile("Expected contribution", money(e["contribution"]), "expected win minus running costs", "account_balance", "teal"),
           tile("Compared with the floor", f"Higher than {pct(rank)}", "of machines, per working hour", "leaderboard", "yellow")])
 
@@ -99,7 +106,14 @@ def render() -> None:
         actual = verdicts.loc[base_id, "tpah"]
         text += (f"\n\nFor comparison, {base_id} actually earned {money(actual, 2)} per working hour in January–June in its current position "
                  f"({verdicts.loc[base_id, 'bank_id']}).")
-    summary(text, key="estimate")
+    pts = [f"Expected win: **{money(e['tpah'], 2)} per working hour**, about **{money(e['expected_win'])}** over {days} days "
+           f"(range {money(e['expected_win_low'])} to {money(e['expected_win_high'])}).",
+           f"Including luck, the amount kept would usually fall between **{money(e['house_win_low'])}** and **{money(e['house_win_high'])}**.",
+           f"After running costs of {money(e['total_costs'])}, expected contribution: **{money(e['contribution'])}**.",
+           f"Per working hour, higher than **{pct(rank)}** of the machines on the floor today."]
+    if base_id:
+        pts.append(f"For comparison, {base_id} actually earned **{money(float(verdicts.loc[base_id, 'tpah']), 2)}** per working hour in January–June.")
+    key_points(pts, more=text, title="What this estimate means", key="estimate")
 
     a, b = st.columns(2)
     with a:

@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from common import evidence, money, out, pct, table, tracked_label
-from ui import BLUE, LIGHT_BLUE, card, detail, header, kpis, plot, summary, tile
+from ui import BLUE, LIGHT_BLUE, card, detail, header, key_points, kpis, plot, summary, tile
 
 
 def weekly(metric: str, fmt: str, change) -> go.Figure:
@@ -30,7 +30,11 @@ def render() -> None:
     w = out("comp_weekly")
     header("Loyalty Rewards", "The cost of complimentary food and drink, the change made on May 1, and its effect so far")
     tracked_label()
-    summary(
+    kpis([tile("Cost of rewards, Jan–Jun", money(s["comp_cost_usd"].sum()), f"menu value {money(s['comp_face_value_usd'].sum())}", "redeem", "purple"),
+          tile("Points needed per reward dollar", f"{chg['before']:.1f} → {chg['after']:.1f}", f"changed {change:%B %-d}, all levels", "swap_vert", "orange"),
+          tile("Extra cost per week since", money(i0["extra_comp_cost_per_week_usd"]), "8 weeks after vs 8 before", "add_card", "red"),
+          tile("Has it paid for itself?", "Not yet known", "no comparison group", "help", "grey")])
+    more_text = (
         f"Members redeemed loyalty points for complimentary food and drink costing the casino **{money(s['comp_cost_usd'].sum())}** "
         f"between January and June (menu value {money(s['comp_face_value_usd'].sum())}). This is "
         f"{pct(w['cost_usd'].sum() / w['tracked_theo_usd'].sum(), 2)} of the expected win from member play.\n\n"
@@ -42,14 +46,16 @@ def render() -> None:
         f"{money(i0['theo_change_net_of_city_high_usd'], signed=True)} per week. Because this range includes both gains and losses, "
         "**it is not yet possible to say whether the change has paid for itself**. Since every member was affected at once, there is "
         "no comparison group; a trial in which a randomly chosen group of members keeps the earlier rate would settle the question.")
-    kpis([tile("Cost of rewards, Jan–Jun", money(s["comp_cost_usd"].sum()), f"menu value {money(s['comp_face_value_usd'].sum())}", "redeem", "purple"),
-          tile("Cost as a share of member play", pct(w["cost_usd"].sum() / w["tracked_theo_usd"].sum(), 2), "of expected win", "percent", "blue"),
-          tile("Points needed per reward dollar", f"{chg['before']:.1f} → {chg['after']:.1f}", f"changed {change:%B %-d}, all levels", "swap_vert", "orange"),
-          tile("Extra cost per week since", money(i0["extra_comp_cost_per_week_usd"]), "8 weeks after vs 8 before", "add_card", "red"),
-          tile("Has it paid for itself?", "Not yet known", "no comparison group", "help", "grey")])
+    key_points([
+        f"Rewards cost **{money(s['comp_cost_usd'].sum())}** (menu value {money(s['comp_face_value_usd'].sum())}), {pct(w['cost_usd'].sum() / w['tracked_theo_usd'].sum(), 2)} of expected win from member play.",
+        f"On **{change:%B %-d}**, points needed per reward dollar fell from {chg['before']:.1f} to {chg['after']:.1f} ({pct(chg['change_pct'], 0, True)}), for all members.",
+        f"Since then, rewards cost **{money(i0['extra_comp_cost_per_week_usd'])} more per week**.",
+        "Whether the change paid for itself is **not yet known**: the effect on play could be a gain or a loss.",
+        "A trial with a comparison group of members would settle the question."
+    ], more=more_text)
     a, b = st.columns(2)
     with a:
-        with card("Points needed per dollar of rewards, by week", "Dark blue: after the change"):
+        with card("Points needed per dollar of rewards, by week", "Purple: after the change"):
             plot(weekly("points_per_comp_dollar", ".1f", change), key="ppd")
     with b:
         with card("Cost of rewards as a share of member play, by week", "Cost of rewards divided by the expected win from member play"):

@@ -1,7 +1,6 @@
-"""The Gilded Ace floor performance review, version 1 (the report).
+"""The Gilded Ace floor performance review (with the machine estimator).
 
 Run from the repository folder:   streamlit run dashboard/app.py
-Version 2, with the machine estimator:   streamlit run dashboard/app_v2.py
 """
 import sys
 from pathlib import Path
@@ -9,4 +8,4 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import shell  # noqa: E402
 
-shell.run(include_estimator=False)
+shell.run()

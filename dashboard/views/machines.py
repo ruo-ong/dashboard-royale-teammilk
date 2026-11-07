@@ -12,7 +12,7 @@ from common import PLAIN_ADVICE, PLAIN_VERDICT, date_range, evidence, is_full_wi
 from royale.data import load_base
 from tasks import a2_exposure, a3_luck, a4_leak, a5_location, a8_decomposition, a9_verdicts
 from tasks.a1_manager_list import manager_ten
-from ui import BLUE, LIGHT_BLUE, card, detail, header, kpis, plot, section, summary, tile
+from ui import BLUE, LIGHT_BLUE, card, detail, header, html_table, key_points, kpis, plot, section, summary, tile
 
 @st.cache_data(show_spinner="Recalculating the machine review for this period. This takes about fifteen seconds.")
 def trial(start, end) -> dict:
@@ -97,7 +97,12 @@ def render() -> None:
     totals = dec[dec["machine_id"].isin(ids)][list(names)].sum()
     main_cause, main_amount = names[totals.idxmin()], totals.min()
     header("Machine Review", "Assessment of the ten machines proposed for replacement, and of every machine on the floor")
-    summary(
+    counts = ten["verdict"].value_counts()
+    kpis([tile("Machine under-performs", str(int(counts.get("Truly weak", 0))), "replacement may be justified", "swap_horiz", "orange"),
+          tile("Explained by location", str(int(counts.get("Location", 0))), "the position, not the machine", "location_on", "purple"),
+          tile("Game keeps less per wager", str(int(counts.get("Low-hold game", 0))), "well used, by design", "casino", "teal"),
+          tile("Inspection advised", str(int(counts.get("Inspect", 0))), "payout pattern differs", "search", "red")])
+    more_text = (
         "This page examines why each machine on the proposed list earned less than a typical machine. A machine can earn little "
         "for reasons that have nothing to do with the machine: it may have been installed late or removed early, been out of "
         "service, stood in a quiet part of the floor, run a game that keeps a smaller share of each wager, or simply had poor "
@@ -108,12 +113,12 @@ def render() -> None:
         "Nine of the ten machines stand in the Back Forty, the area with the lowest level of play on the floor."
         + ("" if is_full_window() else "\n\n*The figures on this page have been recalculated for the period selected in the sidebar. "
            "The proposed list itself remains the January–June list.*"))
-    counts = ten["verdict"].value_counts()
-    kpis([tile("Machines reviewed from the list", f"{len(ten)} of 10", "on the floor in this period", "fact_check", "blue"),
-          tile("Machine under-performs", str(int(counts.get("Truly weak", 0))), "replacement may be justified", "swap_horiz", "orange"),
-          tile("Explained by location", str(int(counts.get("Location", 0))), "the position, not the machine", "location_on", "purple"),
-          tile("Game keeps less per wager", str(int(counts.get("Low-hold game", 0))), "well used, by design", "casino", "teal"),
-          tile("Inspection advised", str(int(counts.get("Inspect", 0))), "payout pattern differs", "search", "red")])
+    key_points([
+        f"**{int((ten['verdict'] == 'Truly weak').sum())} of the 10** machines under-performs because of the machine itself.",
+        f"The largest cause is **{main_cause}**: {money(abs(main_amount))} of the {money(abs(dec[dec['machine_id'].isin(ids)]['gap_usd'].sum()))} combined shortfall.",
+        "Nine of the ten stand in the **Back Forty**, the quietest area of the floor.",
+        "Below, each machine's shortfall is split into its causes, in dollars."
+    ], more=more_text)
 
     with card("Machines remaining after each check",
               "Machines are set aside if they have too little time on the floor, may have incorrect payout settings, or have a shortfall "
@@ -135,13 +140,14 @@ def render() -> None:
     cols = {"machine_id": "Machine", "zone_name": "Area", "theme": "Game", "verdict": "Finding", "advice": "Recommendation"}
     tab1, tab2, tab3 = st.tabs(["The proposed list", "Machines we would consider replacing", "All machines (area and bank filters apply)"])
     with tab1:
-        table(ten.assign(advice=ten["verdict"].map(PLAIN_ADVICE), verdict=ten["verdict"].map(PLAIN_VERDICT))[list(cols)].rename(columns=cols),
-              column_config={"Recommendation": st.column_config.TextColumn(width=520)})
+        t1 = ten.assign(advice=ten["verdict"].map(PLAIN_ADVICE), verdict=ten["verdict"].map(PLAIN_VERDICT))[list(cols)].rename(columns=cols)
+        html_table(t1, badge_col="Finding")
     with tab2:
         ours = v[v["on_our_list"]].sort_values("replace_rank")
-        st.markdown(f"All {len(ours)} machines are the same game, **Comet Cash**. It is played less than its neighbouring machines "
-                    "wherever it stands, which suggests replacing the game title rather than individual machines.")
-        table(ours.assign(advice=ours["verdict"].map(PLAIN_ADVICE), verdict=ours["verdict"].map(PLAIN_VERDICT))[list(cols)].rename(columns=cols))
+        st.markdown(f"- All **{len(ours)}** machines are the same game, **Comet Cash**.\n- It is played less than neighbouring machines "
+                    "wherever it stands.\n- **Replacing the game title** should be considered, rather than individual machines.")
+        html_table(ours.assign(advice=ours["verdict"].map(PLAIN_ADVICE), verdict=ours["verdict"].map(PLAIN_VERDICT))[list(cols)].rename(columns=cols),
+                   badge_col="Finding")
     with tab3:
         allv = zone_bank_filter(v)
         table(allv.assign(advice=allv["verdict"].map(PLAIN_ADVICE), verdict=allv["verdict"].map(PLAIN_VERDICT))[list(cols) + ["gap_usd"]].rename(columns=cols | {"gap_usd": "Difference from typical"}),

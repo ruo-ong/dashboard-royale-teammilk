@@ -35,7 +35,7 @@ def test_page_renders(page, window, zones):
     assert not at.exception, [e.value for e in at.exception]
 
 
-@pytest.mark.parametrize("app", ["app.py", "app_v2.py"])
+@pytest.mark.parametrize("app", ["app.py"])
 def test_app_entry_points_run(app):
     from royale.paths import ROOT
     at = AppTest.from_file(str(ROOT / "dashboard" / app), default_timeout=180)

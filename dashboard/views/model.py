@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from common import ROOT, evidence, money, out, pct, table
-from ui import BLUE, LIGHT_BLUE, card, detail, header, kpis, plot, summary, tile
+from ui import BLUE, LIGHT_BLUE, card, detail, header, key_points, kpis, plot, summary, tile
 
 
 def render() -> None:
@@ -18,7 +18,11 @@ def render() -> None:
     best = d[d["chosen"]].iloc[0]
     header("Business Forecast", "A forecast of the total amount wagered each day, how it was tested, and how it is used",
            chip="Chosen on Apr 2025 · tested on May–Jun 2025")
-    summary(
+    kpis([tile("Forecasting method chosen", "Day-of-week average", "most accurate in April", "calendar_month", "blue"),
+          tile("Average error, May–June", money(chosen["mae_usd"]), f"{pct(chosen['mape'], 1)} of a typical day", "target", "green"),
+          tile("Error without day of week", money(base_a["mae_usd"]), "simple average, for comparison", "remove", "grey"),
+          tile("Forecast for a July weekend", money(best["forecast_coin_in_usd"]), "amount wagered, Fri–Sun", "event", "purple")])
+    more_text = (
         "To plan for July, we forecast the total amount wagered on the floor each day. We compared several forecasting methods "
         "using only information available on April 30, chose the most accurate on April's results, and then tested the chosen "
         "method once against what actually happened in May and June. The rules for this test were written down and recorded "
@@ -30,10 +34,13 @@ def render() -> None:
         f"The forecast is used to estimate the benefit of a promotion weekend in July (about {money(best['promo_theo_uplift_usd'])} in "
         "expected win per weekend) and provides the baseline against which the promotion's results will be measured.\n\n"
         "*This page does not change with the period selected in the sidebar, because the test period is fixed.*")
-    kpis([tile("Forecasting method chosen", "Day-of-week average", "most accurate in April", "calendar_month", "blue"),
-          tile("Average error, May–June", money(chosen["mae_usd"]), f"{pct(chosen['mape'], 1)} of a typical day", "target", "green"),
-          tile("Error without day of week", money(base_a["mae_usd"]), "simple average, for comparison", "remove", "grey"),
-          tile("Forecast for a July weekend", money(best["forecast_coin_in_usd"]), "amount wagered, Fri–Sun", "event", "purple")])
+    key_points([
+        "We forecast the **daily amount wagered** to plan for July.",
+        "The method was chosen on April and **tested once** on May–June; the rules were recorded first.",
+        f"The **day-of-week average** was most accurate: average error **{money(chosen['mae_usd'])} per day** ({pct(chosen['mape'], 1)}).",
+        f"It sizes the **promotion weekend** benefit (about {money(best['promo_theo_uplift_usd'])} each) and is the baseline for measuring it.",
+        "*This page does not change with the sidebar period: the test period is fixed.*"
+    ], more=more_text)
 
     with card("Forecast compared with what happened, May–June", "Daily amount wagered. Shaded: event days."):
         act = res.drop_duplicates("gaming_date")
