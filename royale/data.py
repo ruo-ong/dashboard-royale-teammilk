@@ -88,6 +88,13 @@ def window(df: pd.DataFrame, start: DateLike = None, end: DateLike = None, col: 
     return df[mask]
 
 
+def load_base(start: DateLike = None, end: DateLike = None) -> pd.DataFrame:
+    """outputs/machine_day_base (on-floor machine-days, dollars and hours), cut to an inclusive window."""
+    from royale.outputs import read_output
+
+    return window(read_output("machine_day_base"), start, end).reset_index(drop=True)
+
+
 def con(include_outputs: bool = True) -> duckdb.DuckDBPyConnection:
     """A DuckDB connection with every raw table (and every built output) registered as a view.
 

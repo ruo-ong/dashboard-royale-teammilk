@@ -16,8 +16,16 @@ python scripts/verify_semantics.py
 
 ```sh
 python -m tasks.f4_machine_day_base   # -> outputs/machine_day_base.parquet, reconciliation must print all PASS
-pytest -q                             # helper + base-table checks
+python -m tasks.a1_manager_list       # -> a1_manager_list           (the GM's bottom 10, Jan-Jun)
+python -m tasks.a2_exposure           # -> a2_exposure               (+ charts/a2_rank_shift)
+python -m tasks.a3_luck               # -> a3_luck, a3_luck_monthly  (+ charts/a3_luck_z_hist)
+python -m tasks.a5_location           # -> a5_location, bank_scores, a5_game_by_zone (+ charts/a5_floor_map)
+pytest -q                             # all checks
 ```
+
+Analysis tasks take `--start YYYY-MM-DD --end YYYY-MM-DD` (default: the full Jan 1 - Jun 30 window).
+Each one also exposes a `compute(base, ...)` function, so the dashboard can recompute it live for any date range.
+Charts are written to `outputs/charts/` as HTML (and PNG when Chrome is installed).
 
 **Use the helpers** instead of hand-rolling filters, unit conversions or time zones:
 
