@@ -46,12 +46,15 @@ ADVICE = {
 
 
 def compute(base: pd.DataFrame, start=None, end=None, chronic: pd.DataFrame | None = None,
-            closure_zones: set[str] | None = None, manager_ids: list[str] | None = None) -> pd.DataFrame:
+            closure_zones: set[str] | None = None, manager_ids: list[str] | None = None,
+            exposure: pd.DataFrame | None = None, leak: pd.DataFrame | None = None,
+            location: pd.DataFrame | None = None, dec: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Pass already-computed A2 / A4 / A5 / A8 tables (same window) to avoid recomputing them."""
     ids = manager_ten() if manager_ids is None else manager_ids
-    exposure = a2_exposure.compute(base, start, end, ids)
-    leak, _ = a4_leak.compute(base, ids)
-    location, _, _ = a5_location.compute(base, ids)
-    dec = a8_decomposition.compute(base, start, end, ids, location)
+    exposure = a2_exposure.compute(base, start, end, ids) if exposure is None else exposure
+    leak = a4_leak.compute(base, ids)[0] if leak is None else leak
+    location = a5_location.compute(base, ids)[0] if location is None else location
+    dec = a8_decomposition.compute(base, start, end, ids, location) if dec is None else dec
 
     v = dec.merge(location[["machine_id", "zone_name", "peer_index", "volume_peer_index", "low_hold_game",
                             "thin_peer_group", "location_read", "game_floor_tpah", "n_peers"]], on="machine_id")

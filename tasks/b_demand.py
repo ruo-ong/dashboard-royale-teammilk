@@ -73,8 +73,8 @@ def weekday_and_events(pdy: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     normal = pdy[~pdy["gaming_date"].isin(special)]
     weekday = normal.groupby("local_weekday").agg(days=("gaming_date", "size"), coin_in_usd=("coin_in_usd", "mean"),
                                                   theo_usd=("theo_usd", "mean")).reset_index()
-    order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    weekday["weekday_order"] = weekday["local_weekday"].map({d: i for i, d in enumerate(order)})
+    order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]   # source tables use 3-letter weekdays
+    weekday["weekday_order"] = weekday["local_weekday"].str[:3].map({d: i for i, d in enumerate(order)})
     weekday["index_vs_average"] = weekday["coin_in_usd"] / weekday["coin_in_usd"].mean()
     weekday = weekday.sort_values("weekday_order").reset_index(drop=True)
 

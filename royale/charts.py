@@ -10,6 +10,8 @@ categorical colors in fixed order (series_1, series_2, ...); sequential = one hu
 """
 from __future__ import annotations
 
+import os
+
 import plotly.graph_objects as go
 
 from royale.paths import OUTPUTS
@@ -41,10 +43,13 @@ def _escape_dollars(text: str) -> str:
 def style(fig: go.Figure, title: str, subtitle: str | None = None, height: int = 480) -> go.Figure:
     title = _escape_dollars(title)
     subtitle = _escape_dollars(subtitle) if subtitle else subtitle
-    text = f"<b>{title}</b>" + (f"<br><span style='font-size:13px;color:{COLORS['text_secondary']}'>{subtitle}</span>" if subtitle else "")
+    # Plotly's own subtitle field: correct spacing at any chart height (a <br> subtitle gets clipped).
+    title_spec = {"text": f"<b>{title}</b>", "x": 0, "xanchor": "left", "xref": "container", "pad": {"l": 16},
+                  "y": 1 - 12 / height, "yref": "container", "yanchor": "top", "font": {"size": 18}}
+    if subtitle:
+        title_spec["subtitle"] = {"text": subtitle, "font": {"size": 13, "color": COLORS["text_secondary"]}}
     fig.update_layout(
-        title={"text": text, "x": 0, "xanchor": "left", "y": 0.97, "yanchor": "top", "font": {"size": 18},
-               "pad": {"l": 16}},
+        title=title_spec,
         font={"family": FONT, "size": 13, "color": COLORS["text"]},
         paper_bgcolor=COLORS["surface"],
         plot_bgcolor=COLORS["surface"],
@@ -53,7 +58,8 @@ def style(fig: go.Figure, title: str, subtitle: str | None = None, height: int =
         hoverlabel={"bgcolor": "white", "bordercolor": COLORS["grid"], "font": {"family": FONT, "color": COLORS["text"]}},
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.0, "xanchor": "right", "x": 1, "bgcolor": "rgba(0,0,0,0)"},
     )
-    axis = {"gridcolor": COLORS["grid"], "linecolor": COLORS["grid"], "zerolinecolor": COLORS["grid"],
+    axis = {"automargin": True,  # long category labels widen the margin instead of being cut off
+            "gridcolor": COLORS["grid"], "linecolor": COLORS["grid"], "zerolinecolor": COLORS["grid"],
             "tickfont": {"color": COLORS["text_secondary"]}, "title": {"font": {"color": COLORS["text_secondary"]}}}
     fig.update_xaxes(**axis)
     fig.update_yaxes(**axis)
@@ -65,7 +71,7 @@ def save(fig: go.Figure, name: str, png: bool = True) -> None:
     folder = OUTPUTS / "charts"
     folder.mkdir(parents=True, exist_ok=True)
     fig.write_html(folder / f"{name}.html", include_plotlyjs="cdn")
-    if png:
+    if png and not os.environ.get("ROYALE_NO_PNG"):  # set by the dashboard's first-run build (no Chrome on hosts)
         try:
             fig.write_image(folder / f"{name}.png", width=1100, height=fig.layout.height or 480, scale=2)
         except Exception as error:  # no Chrome / no kaleido: HTML is enough

@@ -103,7 +103,8 @@ def to_long(wide: pd.DataFrame) -> pd.DataFrame:
 
 
 def figure(wide: pd.DataFrame, manager_ids: list[str]) -> go.Figure:
-    ten = wide.set_index("machine_id").loc[list(reversed(manager_ids))].reset_index()  # rank 1 at the top
+    present = [m for m in reversed(manager_ids) if m in set(wide["machine_id"])]  # a sub-period may miss retired machines
+    ten = wide.set_index("machine_id").loc[present].reset_index()  # rank 1 at the top
     totals = {label: ten[col].sum() for col, label, _ in PIECES}
     worst_label = min(totals, key=totals.get)
     fig = go.Figure()

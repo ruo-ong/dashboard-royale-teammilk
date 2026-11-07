@@ -111,8 +111,8 @@ def hour_of_week_index(base: pd.DataFrame) -> pd.DataFrame:
     overall = g["theo_usd"].sum() / g["available_hours"].sum()
     g["tpah"] = g["theo_usd"] / g["available_hours"]
     g["index"] = g["tpah"] / overall
-    order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    g["weekday_order"] = g["local_weekday"].map({d: i for i, d in enumerate(order)})
+    order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]   # source tables use 3-letter weekdays
+    g["weekday_order"] = g["local_weekday"].str[:3].map({d: i for i, d in enumerate(order)})
     return g.sort_values(["weekday_order", "local_hour"]).reset_index(drop=True)
 
 
