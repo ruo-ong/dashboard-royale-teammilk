@@ -163,3 +163,26 @@ def test_plan_claim_ids_exist():
     log = set(pd.read_csv("docs/claims_log.csv")["claim_id"])
     cited = {c.strip() for ids in read_output("r3_benefits")["claim_ids"] for c in ids.split(",")}
     assert cited <= log, cited - log
+
+
+# ---------- M6 machine estimator ----------
+def test_machine_estimator_beats_benchmarks():
+    v = read_output("m6_validation").set_index("method")
+    est = v[v.index.str.startswith("Estimator")]["mae_per_hour_usd"].iloc[0]
+    assert est < v[v.index.str.contains("bank")]["mae_per_hour_usd"].iloc[0]
+    assert est < v[v.index.str.contains("floor median")]["mae_per_hour_usd"].iloc[0]
+    assert 0.7 <= read_output("m6_test_predictions")["within_80pct_range"].mean() <= 0.9
+
+
+def test_estimate_is_consistent():
+    from tasks.m6_machine_model import estimate
+    a = estimate("G-STD90", "B-12", "Northwind", "owned", 0.997, 30, july_adjust=False)
+    b = estimate("G-STD90", "B-12", "Northwind", "owned", 0.997, 60, july_adjust=False)
+    assert b["expected_win"] == pytest.approx(2 * a["expected_win"])          # linear in days
+    assert a["tpah_low"] < a["tpah"] < a["tpah_high"]
+    assert a["house_win_low"] < a["expected_win"] < a["house_win_high"]
+    assert a["contribution"] == pytest.approx(a["expected_win"] - a["total_costs"])
+    fixed = estimate("G-STD90", "B-12", "Northwind", "leased_fixed", 0.997, 30, july_adjust=False)
+    assert fixed["costs"]["lease"] == pytest.approx(45 * 30)                  # cost_rules: $45 per active day
+    weak = estimate("G-STD90", "B-38", "Northwind", "owned", 0.997, 30, july_adjust=False)
+    assert weak["tpah"] < a["tpah"]                                            # Back Forty bank earns less than Center Pit

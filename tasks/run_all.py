@@ -16,6 +16,7 @@ ORDER = [
     "a9_verdicts",                           # needs B4 (closure) and C7 (chronic)
     "d_players", "e_comps",
     "m_model",                               # needs B2 (event uplift) for the July decision
+    "m6_machine_model",                      # machine estimator; uses the July floor forecast (M5)
     "r_plan",                                # needs everything above
     "s1_appendix",                           # docs/APPENDIX.md from the claims log
 ]

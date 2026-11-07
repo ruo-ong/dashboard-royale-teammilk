@@ -72,14 +72,31 @@ def money(x: float, digits: int = 0, signed: bool = False) -> str:
     sign = "−" if x < 0 else ("+" if signed else "")
     a = abs(x)
     if a >= 1e6:
-        return f"{sign}${a / 1e6:,.{max(digits, 1)}f}M"
-    if a >= 1e4:
-        return f"{sign}${a / 1e3:,.{digits}f}k"
-    return f"{sign}${a:,.{digits}f}"
+        return f"{sign}${a / 1e6:,.2f}M"
+    return f"{sign}${a:,.{digits}f}"   # amounts below a million are shown in full, for precision
 
 
 def pct(x: float, digits: int = 0, signed: bool = False) -> str:
-    return "–" if pd.isna(x) else f"{x:{'+' if signed else ''}.{digits}%}"
+    if pd.isna(x):
+        return "–"
+    x = round(float(x), digits + 2) + 0.0   # avoid "-0%"
+    return f"{x:{'+' if signed else ''}.{digits}%}"
+
+
+# Plain-language findings and recommendations for a non-technical reader (the analysts' wording stays in the tables).
+PLAIN_VERDICT = {"Truly weak": "Machine under-performs", "Location": "Location", "Low-hold game": "Game keeps less per wager",
+                 "Inspect": "Inspect payout settings", "Watch list": "Too little data", "Unlucky": "Chance (luck)",
+                 "Short time on floor": "Short time on floor", "Downtime": "Time out of service", "Fine": "No concern"}
+PLAIN_ADVICE = {
+    "Inspect": "Inspect the machine and verify its payout settings before deciding whether to replace it.",
+    "Watch list": "There is not enough time on the floor to judge. Review again after a full period.",
+    "Location": "Do not replace. The low earnings reflect its position on the floor; consider moving it or improving the area.",
+    "Low-hold game": "Keep. Players use it as much as nearby machines; its lower earnings reflect the game's higher payback to players.",
+    "Truly weak": "Consider replacing. This game earns less than nearby machines across the floor, so the game title should be reviewed.",
+    "Unlucky": "Keep. The shortfall is within the normal range of chance.",
+    "Short time on floor": "Keep. It was on the floor for only part of the period.",
+    "Downtime": "Keep, and address its reliability.",
+    "Fine": "Keep."}
 
 
 def kpi(col, label: str, value: str, note: str | None = None) -> None:
@@ -105,7 +122,7 @@ def page_link(name: str, label: str) -> None:
 
 
 # ---------------- evidence ----------------
-def evidence(ids: str | list[str], label: str = "Evidence") -> None:
+def evidence(ids: str | list[str], label: str = "Supporting evidence") -> None:
     """Expandable panel tracing claim IDs to table/query -> result -> alternative tested -> limitation (judge task 4)."""
     ids = [i.strip() for i in (ids.split(",") if isinstance(ids, str) else ids) if i and i.strip()]
     log = claims().set_index("claim_id")
@@ -122,5 +139,6 @@ def evidence(ids: str | list[str], label: str = "Evidence") -> None:
 
 
 def tracked_label() -> None:
-    st.info("Player numbers cover **tracked (loyalty-card) play only**. Uncarded play is invisible at the person level, "
-            "so totals here never match the machine meters, and that is expected.", icon=":material/badge:")
+    st.info("These figures cover play recorded on loyalty cards only. Play by guests who did not use a card cannot be "
+            "linked to a person, so these totals are lower than the machine totals elsewhere in this report. This is expected.",
+            icon=":material/badge:")

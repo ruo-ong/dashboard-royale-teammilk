@@ -4,7 +4,7 @@ from streamlit.testing.v1 import AppTest
 
 from royale.outputs import output_path
 
-PAGES = ["summary", "machines", "demand", "downtime", "players", "comps", "model", "plan", "methods"]
+PAGES = ["summary", "machines", "demand", "downtime", "players", "comps", "model", "plan", "methods", "estimator"]
 SCRIPT = """
 import sys, datetime as dt
 from pathlib import Path
@@ -35,8 +35,9 @@ def test_page_renders(page, window, zones):
     assert not at.exception, [e.value for e in at.exception]
 
 
-def test_app_entry_point_runs():
+@pytest.mark.parametrize("app", ["app.py", "app_v2.py"])
+def test_app_entry_points_run(app):
     from royale.paths import ROOT
-    at = AppTest.from_file(str(ROOT / "dashboard" / "app.py"), default_timeout=180)
+    at = AppTest.from_file(str(ROOT / "dashboard" / app), default_timeout=180)
     at.run()
     assert not at.exception, [e.value for e in at.exception]

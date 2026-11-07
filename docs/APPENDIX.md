@@ -1,7 +1,7 @@
 # Claims & Evidence appendix
 
 Team Milk · Dashboard Royale (The Gilded Ace is fictional; its data is synthetic).
-Generated from `docs/claims_log.csv` by `python -m tasks.s1_appendix`: 34 claims.
+Generated from `docs/claims_log.csv` by `python -m tasks.s1_appendix`: 35 claims.
 Every table named below is built by `python -m tasks.run_all` into `outputs/`.
 
 ## Data notes and foundations
@@ -347,6 +347,16 @@ On a frozen time split, the weekday-average forecast was chosen in April (MAE $4
 - **Alternative explanation tested:** Two richer candidates lost in April (trend over-extrapolated) and would also have lost on May-June
 - **Limitation:** Bias +39,286/day in May-June (June demand fell)
 - **Status:** verified · **Dashboard:** Model page
+
+### M6-01 · finding
+
+A machine's expected win per available hour can be estimated from its bank, game and manufacturer: fitted on January-April and tested on May-June, the estimator's average error was $0.97/h (6.0%), against $2.83/h for the bank average and $4.35/h for the floor median.
+
+- **Table / query:** `python -m tasks.m6_machine_model -> m6_validation, m6_test_predictions, m6_coefficients`
+- **Result:** 308 test machines; 80% inside the stated 80% range; the machine's own January-April result (not available for a new machine) errs by $1.06/h
+- **Alternative explanation tested:** Two simpler benchmarks (bank average, floor median) and the machine's own history
+- **Limitation:** Combinations not present on the floor rely on separate game and location effects; business-level shifts are handled by the July floor forecast factor
+- **Status:** verified · **Dashboard:** Machine estimator (version 2)
 
 ## Q6 · The $100k plan
 

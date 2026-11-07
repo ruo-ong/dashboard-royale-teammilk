@@ -16,8 +16,9 @@ python scripts/verify_semantics.py
 
 ```sh
 python -m tasks.run_all          # every output table in dependency order (~1 min)
-pytest -q                        # 86 checks: reconciliations, leakage, budget rules, every dashboard page
-streamlit run dashboard/app.py   # http://localhost:8501
+pytest -q                        # 91 checks: reconciliations, leakage, budget rules, every dashboard page
+streamlit run dashboard/app.py      # version 1: the report (http://localhost:8501)
+streamlit run dashboard/app_v2.py   # version 2: the report plus the machine estimator
 ```
 
 | Workstream | Script(s) | Main outputs |
@@ -29,16 +30,17 @@ streamlit run dashboard/app.py   # http://localhost:8501
 | D · Q4 tracked players | `tasks/d_players.py` | `player_totals`, `d3_concentration`, `d4_luck_players`, `d5_segments`, `d7_protective` |
 | E · Q5 comps | `tasks/e_comps.py` | `comp_weekly`, `e3_change`, `e4_change_impact`, `e5_tier_economics` |
 | M · forecast model | `tasks/m_model.py` ([protocol](docs/MODEL_PROTOCOL.md) committed first; [write-up](docs/MODEL.md)) | `forecast_results`, `m4_metrics`, `m5_decision` |
+| M6 · machine estimator | `tasks/m6_machine_model.py` (location + game + manufacturer; time-split validated) | `m6_validation`, `m6_coefficients`, `m6_settings` |
 | R · Q6 $100k plan | `tasks/r_plan.py` | `r1_costs`, `r3_benefits`, `portfolio`, `r5_sensitivity`, `r6_measurement`, `r7_tradeoffs` |
 | S · submission | `tasks/s1_appendix.py` | [docs/APPENDIX.md](docs/APPENDIX.md) (Claims & Evidence appendix) |
-| W · dashboard | `dashboard/app.py`, `dashboard/views/*.py` | reads only `outputs/` |
+| W · dashboard | `dashboard/app.py` (v1), `dashboard/app_v2.py` (v2, adds the estimator); shared `shell.py`, `ui.py`, `views/*.py` | reads only `outputs/` |
 
 Any task also runs alone (`python -m tasks.a2_exposure --start 2025-04-01 --end 2025-06-30`); each exposes a
 `compute(...)` function, which is how the machine-trial page recomputes live for any period.
 Charts are also written to `outputs/charts/` as HTML (and PNG when Chrome is installed).
 
 **Deploy (public link for judges):** push to GitHub, then on [share.streamlit.io](https://share.streamlit.io) create an app
-from this repo with main file `dashboard/app.py` (Python 3.12). `outputs/` is not in git, so the app builds it on first
+from this repo with main file `dashboard/app.py` (or `dashboard/app_v2.py` for version 2) (Python 3.12). `outputs/` is not in git, so the app builds it on first
 start (about a minute). Test the link in a private browser window.
 
 **Use the helpers** instead of hand-rolling filters, unit conversions or time zones:

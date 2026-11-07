@@ -1,73 +1,76 @@
-"""W7 - Q5, comps: what the program cost, what changed, and whether it worked."""
+"""Loyalty rewards (Q5): what complimentary rewards cost, the change made on May 1, and whether it has paid for itself."""
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from common import kpi, COLORS, chart, evidence, money, out, pct, style, table, tracked_label
+from common import evidence, money, out, pct, table, tracked_label
+from ui import BLUE, LIGHT_BLUE, card, detail, header, kpis, plot, summary, tile
 
 
-def weekly(metric: str, title: str, subtitle: str, fmt: str, change) -> go.Figure:
+def weekly(metric: str, fmt: str, change) -> go.Figure:
     w = out("comp_weekly")
     w = w[w["full_week"]]
-    fig = go.Figure(go.Scatter(x=w["week"], y=w[metric], mode="lines+markers", line={"color": COLORS["series_1"], "width": 2},
-                               marker={"size": 6}, hovertemplate="week of %{x|%b %d}: %{y:" + fmt + "}<extra></extra>", showlegend=False))
-    fig.add_vline(x=change, line={"color": COLORS["text_secondary"], "width": 1, "dash": "dot"})
-    fig.add_annotation(x=change, y=1, yref="paper", text=f"change {change:%b %-d}", showarrow=False, xanchor="left",
-                       yanchor="bottom", font={"size": 12, "color": COLORS["text_secondary"]})
-    style(fig, title, subtitle, height=320)
+    fig = go.Figure(go.Bar(x=w["week"], y=w[metric], marker={"color": [LIGHT_BLUE if d < change else BLUE for d in w["week"]]},
+                           hovertemplate="week of %{x|%b %d}: %{y:" + fmt + "}<extra></extra>"))
+    fig.add_vline(x=change, line={"color": "#555", "width": 1, "dash": "dot"})
+    fig.add_annotation(x=change, y=1, yref="paper", text=f"Change on {change:%B %-d}", showarrow=False, xanchor="left", yanchor="bottom",
+                       font={"size": 11, "color": "#555"})
     fig.update_yaxes(tickformat=fmt, rangemode="tozero")
+    fig.update_layout(height=300, bargap=0.2)
     return fig
 
 
 def render() -> None:
-    st.title("Q5 · The comp program: cost, change, and impact")
-    tracked_label()
     chg = out("e3_change").iloc[0]
     change = pd.Timestamp(chg["change_date"])
     imp = out("e4_change_impact")
     i0 = imp.iloc[0]
+    t = imp.set_index("metric")
     s = out("e1_comp_series")
     w = out("comp_weekly")
-    k = st.columns(4)
-    kpi(k[0], "Comp cost, Jan–Jun", money(s["comp_cost_usd"].sum()), f"face value {money(s['comp_face_value_usd'].sum())}")
-    kpi(k[1], "Reinvestment rate", pct(w["cost_usd"].sum() / w["tracked_theo_usd"].sum(), 2), "comp cost ÷ tracked theo")
-    kpi(k[2], "Points per comp dollar", pct(chg["change_pct"], 0, True), f"changed on {change:%b %-d}, every tier at once")
-    kpi(k[3], "Did it pay for itself?", i0["verdict"].capitalize())
-    st.caption("Comp cost is already inside POS cost of goods: it is subtracted once, never twice. Ledger and POS reconcile to the cent.")
-
+    header("Loyalty Rewards", "The cost of complimentary food and drink, the change made on May 1, and its effect so far")
+    tracked_label()
+    summary(
+        f"Members redeemed loyalty points for complimentary food and drink costing the casino **{money(s['comp_cost_usd'].sum())}** "
+        f"between January and June (menu value {money(s['comp_face_value_usd'].sum())}). This is "
+        f"{pct(w['cost_usd'].sum() / w['tracked_theo_usd'].sum(), 2)} of the expected win from member play.\n\n"
+        f"On **{change:%B %-d, %Y}**, the number of points needed for each dollar of rewards was reduced from {chg['before']:.1f} to "
+        f"{chg['after']:.1f}, a reduction of {pct(abs(chg['change_pct']))}. The change applied to all membership levels on the same day.\n\n"
+        f"In the eight weeks after the change, rewards cost {money(i0['extra_comp_cost_per_week_usd'])} more per week than before. "
+        f"Member play declined slightly, by a similar amount to the decline in Las Vegas visitors. After allowing for the city trend, "
+        f"the change in member play lies somewhere between {money(i0['theo_change_net_of_city_low_usd'], signed=True)} and "
+        f"{money(i0['theo_change_net_of_city_high_usd'], signed=True)} per week. Because this range includes both gains and losses, "
+        "**it is not yet possible to say whether the change has paid for itself**. Since every member was affected at once, there is "
+        "no comparison group; a trial in which a randomly chosen group of members keeps the earlier rate would settle the question.")
+    kpis([tile("Cost of rewards, Jan–Jun", money(s["comp_cost_usd"].sum()), f"menu value {money(s['comp_face_value_usd'].sum())}", "redeem", "purple"),
+          tile("Cost as a share of member play", pct(w["cost_usd"].sum() / w["tracked_theo_usd"].sum(), 2), "of expected win", "percent", "blue"),
+          tile("Points needed per reward dollar", f"{chg['before']:.1f} → {chg['after']:.1f}", f"changed {change:%B %-d}, all levels", "swap_vert", "orange"),
+          tile("Extra cost per week since", money(i0["extra_comp_cost_per_week_usd"]), "8 weeks after vs 8 before", "add_card", "red"),
+          tile("Has it paid for itself?", "Not yet known", "no comparison group", "help", "grey")])
     a, b = st.columns(2)
     with a:
-        chart(weekly("points_per_comp_dollar", f"On {change:%b %-d} comps got {pct(abs(chg['change_pct']))} cheaper in points",
-                     "Loyalty points redeemed per dollar of comp face value, by week", ".1f", change), key="ppd")
+        with card("Points needed per dollar of rewards, by week", "Dark blue: after the change"):
+            plot(weekly("points_per_comp_dollar", ".1f", change), key="ppd")
     with b:
-        chart(weekly("reinvestment_rate", "Yet comp spending barely moved",
-                     "Comp cost ÷ tracked theo, by week", ".2%", change), key="reinv")
-    evidence("E-01")
-
-    st.subheader("Did the change work?")
-    t = imp.set_index("metric")
-    st.markdown(
-        f"In the {int(t.loc['cost_usd', 'weeks_after'])} weeks after vs the {int(t.loc['cost_usd', 'weeks_before'])} weeks before: "
-        f"redemptions {pct(t.loc['redemptions', 'change_pct'], 1, True)}, comp cost {pct(t.loc['cost_usd', 'change_pct'], 1, True)} "
-        f"({money(i0['extra_comp_cost_per_week_usd'], signed=True)}/week), active carded players {pct(t.loc['active_players', 'change_pct'], 1, True)}, "
-        f"tracked theo {pct(t.loc['tracked_theo_usd', 'change_pct'], 1, True)} while Las Vegas visitors moved {pct(i0['city_visitors_change_pct'], 1, True)}. "
-        f"Net of the city trend, tracked theo changed **{money(i0['theo_change_net_of_city_per_week_usd'], signed=True)}/week** "
-        f"(range {money(i0['theo_change_net_of_city_low_usd'], signed=True)} to {money(i0['theo_change_net_of_city_high_usd'], signed=True)}). "
-        f"**Verdict: {i0['verdict']}.** Every tier changed on the same day, so there is no untreated group to compare with; "
-        "a pilot with a randomly assigned control group is how to get a clean answer.")
-    table(imp[["metric", "mean_before", "mean_after", "change_pct", "change_low", "change_high"]],
-          column_config={"change_pct": st.column_config.NumberColumn("change", format="percent")}
-          | {c: st.column_config.NumberColumn(format="localized") for c in ["mean_before", "mean_after", "change_low", "change_high"]})
-    evidence("E-02")
-
-    a, b = st.columns(2)
-    with a:
-        st.markdown("**Points per comp dollar by tier, before vs after**")
+        with card("Cost of rewards as a share of member play, by week", "Cost of rewards divided by the expected win from member play"):
+            plot(weekly("reinvestment_rate", ".2%", change), key="reinv")
+    with card("Effect of the change on each membership level", "Points needed per dollar of rewards, before and after"):
         bt = out("e3_by_tier").pivot(index="tier", columns="period", values="points_per_comp_dollar")[["before", "after"]]
-        table(bt.reset_index(), column_config={c: st.column_config.NumberColumn(format="%.1f") for c in ["before", "after"]})
-    with b:
-        st.markdown("**Comp economics by tier (tier at the end of the period)**")
-        te = out("e5_tier_economics")
-        table(te[["tier", "players", "theo_per_player_usd", "comp_cost_per_player_usd", "contribution_per_player_usd", "reinvestment_rate"]],
-              column_config={c: st.column_config.NumberColumn(format="dollar") for c in ["theo_per_player_usd", "comp_cost_per_player_usd", "contribution_per_player_usd"]}
-              | {"reinvestment_rate": st.column_config.NumberColumn(format="percent")})
+        fig = go.Figure()
+        for col, colour, name in [("before", LIGHT_BLUE, "Before May 1"), ("after", BLUE, "After May 1")]:
+            fig.add_trace(go.Bar(x=bt.index, y=bt[col], name=name, marker={"color": colour}, text=[f"{v:.1f}" for v in bt[col]], textposition="outside"))
+        fig.update_layout(barmode="group", height=280)
+        plot(fig, legend_top=True)
+
+    with detail():
+        st.markdown("**Method.** The change date is the strongest break in any weekly measure of the programme. The effect is the "
+                    "difference between the eight full weeks before and after, with a range of ±2 standard errors; member play is "
+                    "adjusted by the change in Las Vegas visitors per day. Reward cost is already included in the cost of goods sold "
+                    "and is counted once. The loyalty ledger and the point-of-sale records agree to the cent.")
+        evidence(["E-01", "E-02"])
+        table(imp[["metric", "mean_before", "mean_after", "change_pct", "change_low", "change_high"]],
+              column_config={"change_pct": st.column_config.NumberColumn("change", format="percent")}
+              | {c: st.column_config.NumberColumn(format="localized") for c in ["mean_before", "mean_after", "change_low", "change_high"]})
+        table(out("e3_breaks"))
+        st.markdown("Reward economics by membership level (level at the end of the period):")
+        table(out("e5_tier_economics"))
