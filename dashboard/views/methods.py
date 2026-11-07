@@ -69,7 +69,7 @@ def render() -> None:
         st.markdown(
             "**Use of AI.** The team used Claude (Anthropic), through Claude Code, to help plan the work, write and test the analysis "
             "code and this report, and draft text. All figures are produced by the code in the repository from the challenge data, "
-            "checked by automated tests, and reviewed by the team. Each team member records their own use in the appendix.")
+            "checked by automated tests, and reviewed by the team.")
         st.markdown(
             "**Reproducing the report.** All code, data and tests are in the repository: "
             "[github.com/ruo-ong/dashboard-royale-teammilk](https://github.com/ruo-ong/dashboard-royale-teammilk). "
