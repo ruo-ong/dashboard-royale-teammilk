@@ -47,10 +47,11 @@ def r1_costs() -> pd.DataFrame:
     return out
 
 
-def _unit(action, target, cost, low, mid, high, claims, note):
+def _unit(action, target, cost, low, mid, high, claims, note, info=(0.0, 0.0, 0.0), info_note=""):
     return {"action_type_id": action, "target": target, "unit_cost_usd": cost, "benefit_low_usd": low,
             "benefit_mid_usd": mid, "benefit_high_usd": high, "net_mid_usd": mid - cost, "net_low_usd": low - cost,
-            "claim_ids": claims, "how_estimated": note}
+            "info_value_low_usd": info[0], "info_value_mid_usd": info[1], "info_value_high_usd": info[2],
+            "score_usd": mid - cost + info[1], "claim_ids": claims, "how_estimated": note, "info_value_note": info_note}
 
 
 def r3_benefits(costs: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -71,13 +72,18 @@ def r3_benefits(costs: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     for r in leak[leak["inspection_lead"]].itertuples():
         per_day = (r.expected_hold - r.observed_hold) * m.loc[r.machine_id, "coin_in_usd"] / m.loc[r.machine_id, "days_on_floor"]
         days = eff["A-INSPECT"] - down_h["A-INSPECT"] / 24
+        after = 365 - HORIZON - 1   # the rest of the year after July, if a wrong setting is found and fixed
         units.append(_unit("A-INSPECT", r.machine_id, c1.loc["A-INSPECT", "cost_usd"], 0.25 * per_day * days,
                            0.6 * per_day * days, 0.9 * per_day * days, "A4-01",
-                           "hold gap x coin-in/day x effective days x P(real) 25/60/90%; main value is information"))
+                           "hold gap x coin-in/day x effective days x P(real) 25/60/90%; main value is information",
+                           info=tuple(pp * per_day * after for pp in (0.25, 0.6, 0.9)),
+                           info_note="Recovery for the rest of the year if the payout setting is wrong and is fixed (P 25/60/90%)"))
 
     # A-PROMO: from M5 (forecast weekend theo x the uplift our own promotions achieved, B2).
     dec = read_output("m5_decision")
-    for r in dec[dec["eligible_after_lead"]].sort_values("friday").itertuples():
+    # One promotion weekend only: the next weekend stays unpromoted as a same-month comparison (measurement), and
+    # back-to-back promotions could pull visits from each other rather than add new play.
+    for r in dec[dec["chosen"]].itertuples():
         units.append(_unit("A-PROMO", f"weekend {r.weekend}", c1.loc["A-PROMO", "cost_usd"], r.promo_theo_uplift_low_usd,
                            r.promo_theo_uplift_usd, r.promo_theo_uplift_high_usd, "B9-05, M-01",
                            "forecast weekend theo (M5) x property-promotion uplift range (B2)"))
@@ -145,8 +151,14 @@ def r3_benefits(costs: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
                        "Back Forty theo/day x effective days x uplift 0/2/5% (the closure showed access matters; signage effect unproven)"))
 
     # A-COMP-PILOT: information, not 30-day theo.
-    units.append(_unit("A-COMP-PILOT", "rate pilot with control group", c1.loc["A-COMP-PILOT", "cost_usd"], 0.0, 0.0, 0.0,
-                       "E-01, E-02", "no 30-day theo; value is a clean answer on the May 1 comp change (E4: can't tell yet)"))
+    liab = read_output("e3_points_liability").iloc[0]
+    impact = read_output("e4_change_impact").iloc[0]
+    stakes = impact["extra_comp_cost_per_week_usd"] * 52 + liab["extra_cost_at_observed_redemption_usd"]
+    units.append(_unit("A-COMP-PILOT", "a randomly chosen half of members returns to the earlier rate as the comparison group", c1.loc["A-COMP-PILOT", "cost_usd"], 0.0, 0.0, 0.0,
+                       "E-01, E-02, E-03", "no 30-day theo; value is a clean answer on the May 1 comp change (E4: can't tell yet)",
+                       info=(0.25 * stakes, 0.5 * stakes, 0.75 * stakes),
+                       info_note=f"Chance 25/50/75% that the trial leads to correcting the rate, times the 12-month cost at stake "
+                                 f"(${stakes:,.0f}: extra rewards per week x 52 plus the extra cost of points already issued)"))
 
     dropped += [
         {"action_type_id": "A-MOVE-BANK", "reason": "No empty space for a whole bank: the floor has 6 empty single slots, one per bank."},
@@ -162,7 +174,7 @@ def r4_portfolio(units: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Best combination of up to 3 action types x quantities within budget, by mid net benefit (tie: low net)."""
     options = {}
     for action, g in units.groupby("action_type_id"):
-        g = g[g["net_mid_usd"] > 0].sort_values("net_mid_usd", ascending=False)
+        g = g[g["score_usd"] > 0].sort_values("score_usd", ascending=False)
         if g.empty:
             continue
         opts = []
@@ -170,7 +182,9 @@ def r4_portfolio(units: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             top = g.head(q)
             opts.append({"action_type_id": action, "quantity": q, "cost": top["unit_cost_usd"].sum(),
                          "low": top["benefit_low_usd"].sum(), "mid": top["benefit_mid_usd"].sum(),
-                         "high": top["benefit_high_usd"].sum(), "targets": "; ".join(top["target"]),
+                         "high": top["benefit_high_usd"].sum(), "info": top["info_value_mid_usd"].sum(),
+                         "info_low": top["info_value_low_usd"].sum(), "info_high": top["info_value_high_usd"].sum(),
+                         "targets": "; ".join(top["target"]),
                          "claim_ids": ", ".join(sorted(set(", ".join(top["claim_ids"]).split(", "))))})
         options[action] = opts
     best, rows = None, []
@@ -180,13 +194,15 @@ def r4_portfolio(units: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
                 cost = sum(c["cost"] for c in choice)
                 if cost > BUDGET:
                     continue
-                net_mid = sum(c["mid"] - c["cost"] for c in choice)
+                net_mid = sum(c["mid"] - c["cost"] + c["info"] for c in choice)
                 net_low = sum(c["low"] - c["cost"] for c in choice)
                 key = (round(net_mid, 2), round(net_low, 2), -cost)
-                rows.append({"types": " + ".join(types) or "(keep everything)", "cost": cost, "net_mid": net_mid, "net_low": net_low})
+                rows.append({"types": " + ".join(types) or "(keep everything)", "cost": cost, "score_mid": net_mid, "net_low": net_low})
                 if best is None or key > best[0]:
                     best = (key, choice)
+    priority = {"A-INSPECT": 0, "A-PROMO": 1, "A-COMP-PILOT": 2}   # present in a sensible order: inspect first
     chosen = pd.DataFrame(list(best[1]))
+    chosen = chosen.sort_values("action_type_id", key=lambda a: a.map(priority).fillna(9)).reset_index(drop=True)
     chosen["net_mid"] = chosen["mid"] - chosen["cost"]
     chosen["net_low"] = chosen["low"] - chosen["cost"]
     names = load("action_catalog").set_index("action_type_id")["name"]
@@ -194,8 +210,9 @@ def r4_portfolio(units: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     keep = BUDGET - chosen["cost"].sum()
     chosen = pd.concat([chosen, pd.DataFrame([{"action_type_id": "A-HOLD", "name": "Preserve budget", "quantity": 1,
                                                "cost": 0.0, "low": 0.0, "mid": 0.0, "high": 0.0, "targets": f"keep ${keep:,.0f}",
-                                               "claim_ids": "", "net_mid": 0.0, "net_low": 0.0, "kept_usd": keep}])], ignore_index=True)
-    return chosen, pd.DataFrame(rows).sort_values("net_mid", ascending=False).head(25)
+                                               "claim_ids": "", "net_mid": 0.0, "net_low": 0.0, "info": 0.0, "info_low": 0.0,
+                                               "info_high": 0.0, "kept_usd": keep}])], ignore_index=True)
+    return chosen, pd.DataFrame(rows).sort_values("score_mid", ascending=False).head(25)
 
 
 def r5_sensitivity(portfolio: pd.DataFrame, costs: pd.DataFrame) -> pd.DataFrame:
@@ -213,11 +230,11 @@ def r5_sensitivity(portfolio: pd.DataFrame, costs: pd.DataFrame) -> pd.DataFrame
 
 
 MEASUREMENT = {
-    "A-PROMO": dict(metric="Floor theo on the promotion weekend (theo, not house win: luck cannot fake a result)",
-                    comparison="The frozen M5 forecast for that weekend, and the same weekend's days in the weeks before",
-                    check_date="Monday after each promotion weekend (Jul 21; Jul 28)",
-                    success="Theo above forecast by more than the break-even uplift, net of the model's known May-June bias",
-                    if_fails="Do not repeat the format; review prize structure before the next quarter's calendar"),
+    "A-PROMO": dict(metric="Floor expected win (theo) on the promotion weekend; theo, not house win, so luck cannot fake a result",
+                    comparison="The frozen day-of-week forecast for that weekend, and the unpromoted weekend of Jul 25-27",
+                    check_date="Jul 28, after the comparison weekend",
+                    success="Above the forecast by more than its normal weekend error (about 10%) and above Jul 25-27",
+                    if_fails="Do not repeat the format; review the prize structure before the next quarter's calendar"),
     "A-INSPECT": dict(metric="Paytable / configuration match, then hit-rate z and hold gap on M-1158",
                       comparison="The game's published hit probability and RTP (game_math); the other Desert Gold machines",
                       check_date="Inspection report by Jul 3; payout re-check after 28 days (Jul 31)",
@@ -263,8 +280,9 @@ def main() -> None:
     trade = pd.concat([not_funded[["action_type_id", "reason"]], dropped], ignore_index=True)
     keep = portfolio.loc[portfolio["action_type_id"] == "A-HOLD", "kept_usd"].iloc[0]
     trade.loc[len(trade)] = {"action_type_id": "RISKS", "reason": (
-        "Promotion uplift is measured on two of our own events only; move benefit rests on 3 past moves (realisation "
-        "-57% to +195%); the inspection may find nothing (its value is then the information).")}
+        "Promotion uplift is measured on two of our own events only (+6% and +18%), and a lift below about 10% cannot be "
+        "told apart from forecast error; the inspection may find nothing (its value is then the information); the trial's "
+        "value depends on how many issued points are eventually redeemed.")}
     trade.loc[len(trade)] = {"action_type_id": "KEPT", "reason": f"${keep:,.0f} kept: no other action clears its cost within 30 days."}
     write_output("r7_tradeoffs", trade)
 

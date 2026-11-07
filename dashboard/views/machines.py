@@ -36,24 +36,33 @@ def trial(start, end) -> dict:
 def funnel(verdicts: pd.DataFrame) -> go.Figure:
     ten = verdicts[verdicts["in_manager_10"]]
     missing = [m for m in manager_ten() if m not in set(ten["machine_id"])]
-    n1 = len(ten) - int((ten["verdict"] == "Watch list").sum())
+    n0 = len(ten)
+    n1 = n0 - int((ten["verdict"] == "Watch list").sum())
     n2 = n1 - int((ten["verdict"] == "Inspect").sum())
     n3 = int((ten["verdict"] == "Truly weak").sum())
     dropped = {
-        "Enough time on the floor to judge": ", ".join(list(ten.loc[ten["verdict"] == "Watch list", "machine_id"]) + [f"{m} (not on the floor)" for m in missing]),
+        "On the floor in this period": ", ".join(missing) or "none",
+        "Enough time on the floor to judge": ", ".join(ten.loc[ten["verdict"] == "Watch list", "machine_id"]) or "none",
         "Payout settings appear correct": ", ".join(ten.loc[ten["verdict"] == "Inspect", "machine_id"]),
         "Not explained by other causes": ", ".join(
             f"{m} ({PLAIN_VERDICT.get(v, v)})" for m, v in zip(ten["machine_id"], ten["verdict"]) if v not in ("Watch list", "Inspect", "Truly weak"))}
     labels = ["On the proposed list", *dropped]
-    values = [10, n1, n2, n3]
+    values = [10, n0, n1, n2, n3]
     fig = go.Figure(go.Bar(x=values[::-1], y=labels[::-1], orientation="h", text=[str(v) for v in values[::-1]], textposition="outside",
-                           marker={"color": [LIGHT_BLUE, BLUE, BLUE, BLUE]},
+                           marker={"color": [LIGHT_BLUE, BLUE, BLUE, BLUE, BLUE]},
                            customdata=["", *dropped.values()][::-1],
                            hovertemplate="%{y}: %{x}<br>Set aside at this step: %{customdata}<extra></extra>"))
     fig.update_xaxes(range=[0, 11], title_text="Machines remaining", dtick=1)
     fig.update_yaxes(automargin=True, showgrid=False)
-    fig.update_layout(height=230)
+    fig.update_layout(height=260)
     return fig
+
+
+@st.cache_data(show_spinner="Comparing each game with its neighbours in both halves of the period...")
+def games_for(start, end) -> pd.DataFrame:
+    if (start, end) == (pd.Timestamp("2025-01-01").date(), pd.Timestamp("2025-06-30").date()):
+        return out("a9_game_review")
+    return a9_verdicts.game_review(start, end)
 
 
 def luck_chart(base: pd.DataFrame, machine_id: str) -> go.Figure:
@@ -98,7 +107,8 @@ def render() -> None:
     main_cause, main_amount = names[totals.idxmin()], totals.min()
     header("Machine Review", "Assessment of the ten machines proposed for replacement, and of every machine on the floor")
     counts = ten["verdict"].value_counts()
-    kpis([tile("Machine under-performs", str(int(counts.get("Truly weak", 0))), "replacement may be justified", "swap_horiz", "orange"),
+    border = ten.loc[ten["verdict"] == "Borderline", "machine_id"].tolist()
+    kpis([tile("Clearly weak machines", str(int(counts.get("Truly weak", 0))), f"borderline: {', '.join(border) or 'none'}", "swap_horiz", "orange"),
           tile("Explained by location", str(int(counts.get("Location", 0))), "the position, not the machine", "location_on", "purple"),
           tile("Game keeps less per wager", str(int(counts.get("Low-hold game", 0))), "well used, by design", "casino", "teal"),
           tile("Inspection advised", str(int(counts.get("Inspect", 0))), "payout pattern differs", "search", "red")])
@@ -107,17 +117,19 @@ def render() -> None:
         "for reasons that have nothing to do with the machine: it may have been installed late or removed early, been out of "
         "service, stood in a quiet part of the floor, run a game that keeps a smaller share of each wager, or simply had poor "
         "luck. Each of these causes is measured in dollars, and the parts add up exactly to the machine's total shortfall.\n\n"
-        f"For the period shown, **{int((ten['verdict'] == 'Truly weak').sum())} of the ten machines** under-performs for reasons "
-        f"attributable to the machine itself. Across the list, the largest single cause is **{main_cause}**, which accounts for "
+        f"For the period shown, **{int(counts.get('Truly weak', 0))} of the ten machines** clearly under-performs for reasons "
+        "attributable to the machine itself. A machine is called borderline when its level of play is close to our cut-off (0.75 to "
+        "0.85 times its neighbours), because such a finding can change with the period chosen. Across the list, the largest single cause is **{main_cause}**, which accounts for "
         f"{money(abs(main_amount))} of the combined shortfall of {money(abs(dec[dec['machine_id'].isin(ids)]['gap_usd'].sum()))}. "
         "Nine of the ten machines stand in the Back Forty, the area with the lowest level of play on the floor."
         + ("" if is_full_window() else "\n\n*The figures on this page have been recalculated for the period selected in the sidebar. "
            "The proposed list itself remains the January–June list.*"))
     key_points([
-        f"**{int((ten['verdict'] == 'Truly weak').sum())} of the 10** machines under-performs because of the machine itself.",
+        (f"**{int(counts.get('Truly weak', 0))} of the 10** machines is clearly weak because of the machine itself"
+         + (f"; **{', '.join(border)}** is borderline (review again)." if border else ".")),
         f"The largest cause is **{main_cause}**: {money(abs(main_amount))} of the {money(abs(dec[dec['machine_id'].isin(ids)]['gap_usd'].sum()))} combined shortfall.",
         "Nine of the ten stand in the **Back Forty**, the quietest area of the floor.",
-        "Below, each machine's shortfall is split into its causes, in dollars."
+        "**Comet Cash** is played less than its neighbours in both halves of the period: a game-title question, not a single-machine one."
     ], more=more_text)
 
     with card("Machines remaining after each check",
@@ -125,7 +137,7 @@ def render() -> None:
               "explained by location, luck, time on the floor or the game. Hover over a bar to see which machines were set aside."):
         plot(funnel(v))
     with card("Why each machine earned less than a typical machine",
-              "Dollar amount attributable to each cause, January–June basis. The coloured parts add up to each machine's total shortfall (◆)."):
+              f"Dollar amount attributable to each cause, {start:%b %-d} – {end:%b %-d, %Y}. The coloured parts add up to each machine's total shortfall (◆)."):
         fig = a8_decomposition.figure(dec, ids)
         plain = {"Short exposure": "Time on the floor", "Downtime": "Time out of service", "Machine: play volume": "Machine: level of play",
                  "Machine: game hold": "Machine: game's share of wagers", "Total gap vs typical": "Total difference"}
@@ -138,16 +150,31 @@ def render() -> None:
 
     section("Findings for each machine")
     cols = {"machine_id": "Machine", "zone_name": "Area", "theme": "Game", "verdict": "Finding", "advice": "Recommendation"}
-    tab1, tab2, tab3 = st.tabs(["The proposed list", "Machines we would consider replacing", "All machines (area and bank filters apply)"])
+    tab1, tab2, tab3 = st.tabs(["The proposed list", "Game title review", "All machines (area and bank filters apply)"])
     with tab1:
         t1 = ten.assign(advice=ten["verdict"].map(PLAIN_ADVICE), verdict=ten["verdict"].map(PLAIN_VERDICT))[list(cols)].rename(columns=cols)
+        missing = [m for m in ids if m not in set(ten["machine_id"])]
+        if missing:
+            info = out("a1_manager_list").set_index("machine_id")
+            t1 = pd.concat([t1, pd.DataFrame([{"Machine": m, "Area": info.loc[m, "zone_id"], "Game": info.loc[m, "theme"],
+                                               "Finding": "Not on the floor in this period",
+                                               "Recommendation": "Choose a period in which it was installed to review it."} for m in missing])],
+                           ignore_index=True)
         html_table(t1, badge_col="Finding")
     with tab2:
-        ours = v[v["on_our_list"]].sort_values("replace_rank")
-        st.markdown(f"- All **{len(ours)}** machines are the same game, **Comet Cash**.\n- It is played less than neighbouring machines "
-                    "wherever it stands.\n- **Replacing the game title** should be considered, rather than individual machines.")
-        html_table(ours.assign(advice=ours["verdict"].map(PLAIN_ADVICE), verdict=ours["verdict"].map(PLAIN_VERDICT))[list(cols)].rename(columns=cols),
-                   badge_col="Finding")
+        games = games_for(start, end)
+        weak_games = games[games["played_less_in_both_halves"]]["theme"].tolist()
+        st.markdown("- Each game is compared with the machines next to it, over the whole period and in each half.\n"
+                    + (f"- **{', '.join(weak_games)}** is played less than its neighbours in both halves: its **title** should be reviewed.\n"
+                       if weak_games else "- No game is played less than its neighbours in both halves of this period.\n")
+                    + "- A title-level finding does not depend on any single machine or on the exact cut-off.")
+        g = games.assign(**{c: games[c].map(lambda x: f"{x:.2f}×") for c in ["volume_vs_neighbours_whole", "volume_vs_neighbours_first_half",
+                                                                            "volume_vs_neighbours_second_half"]})
+        g["played_less_in_both_halves"] = g["played_less_in_both_halves"].map({True: "Yes", False: "No"})
+        html_table(g[["theme", "machines", "volume_vs_neighbours_whole", "volume_vs_neighbours_first_half", "volume_vs_neighbours_second_half",
+                      "played_less_in_both_halves"]].rename(columns={"theme": "Game", "machines": "Machines", "volume_vs_neighbours_whole": "Play vs neighbours",
+                                                                     "volume_vs_neighbours_first_half": "First half", "volume_vs_neighbours_second_half": "Second half",
+                                                                     "played_less_in_both_halves": "Less in both halves"}))
     with tab3:
         allv = zone_bank_filter(v)
         table(allv.assign(advice=allv["verdict"].map(PLAIN_ADVICE), verdict=allv["verdict"].map(PLAIN_VERDICT))[list(cols) + ["gap_usd"]].rename(columns=cols | {"gap_usd": "Difference from typical"}),

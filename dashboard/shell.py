@@ -14,19 +14,17 @@ for p in (ROOT, Path(__file__).resolve().parent):
 
 import common  # noqa: E402
 import ui  # noqa: E402
-from royale.outputs import output_path  # noqa: E402
 
 
 def run(include_estimator: bool = True) -> None:
     st.set_page_config(page_title="The Gilded Ace: Floor Performance Review", page_icon=":material/casino:", layout="wide")
     ui.inject_css()
     st.logo(str(Path(__file__).resolve().parent / "assets" / "logo.svg"), size="large")
-    needed = "m6_settings" if include_estimator else "portfolio"
-    if not output_path(needed).exists() or not output_path("portfolio").exists():
-        with st.spinner("Preparing the report from the source data for the first time. This takes about one minute."):
+    from tasks import run_all
+    if not run_all.is_complete():
+        with st.spinner("Preparing the report from the source data. The first visit takes about one minute."):
             os.environ["ROYALE_NO_PNG"] = "1"
-            from tasks.run_all import run as build
-            build()
+            run_all.run(force=False)   # one build at a time; a session that waited simply finds the outputs ready
             st.cache_data.clear()
 
     from views import comps, demand, downtime, machines, methods, model, plan, players, summary

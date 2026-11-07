@@ -7,7 +7,9 @@ Rename only after telling the team, since other tasks read these names.
 
 The outputs/ folder is gitignored: rebuild with the task scripts (see README).
 """
+import os
 import re
+import threading
 
 import pandas as pd
 
@@ -23,8 +25,12 @@ def output_path(name: str):
 
 
 def write_output(name: str, df: pd.DataFrame) -> None:
+    """Write atomically: to a temporary file first, then swap it in, so a reader never sees a half-written table."""
     OUTPUTS.mkdir(exist_ok=True)
-    df.to_parquet(output_path(name), index=False)
+    path = output_path(name)
+    tmp = path.with_name(f".{path.stem}.{os.getpid()}.{threading.get_ident()}.tmp")
+    df.to_parquet(tmp, index=False)
+    os.replace(tmp, path)
 
 
 def read_output(name: str) -> pd.DataFrame:

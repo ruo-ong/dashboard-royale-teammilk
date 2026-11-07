@@ -38,7 +38,11 @@ def render() -> None:
         "We forecast the **daily amount wagered** to plan for July.",
         "The method was chosen on April and **tested once** on May–June; the rules were recorded first.",
         f"The **day-of-week average** was most accurate: average error **{money(chosen['mae_usd'])} per day** ({pct(chosen['mape'], 1)}).",
-        f"It sizes the **promotion weekend** benefit (about {money(best['promo_theo_uplift_usd'])} each) and is the baseline for measuring it.",
+        f"It sizes the **promotion weekend** benefit (about {money(best['promo_theo_uplift_usd'])}) and is the yardstick for measuring it.",
+        f"Normal weekend forecast error was {pct(best['weekend_error_mean'], 1, True)} (± {pct(2 * best['weekend_error_sd'])}): an 18% lift "
+        "would be detectable, a 6% lift would not.",
+        f"**It changes the decision on success:** against a flat average, an ordinary weekend already looks "
+        f"{pct(best['flat_baseline_false_lift'], 0, True)} better, so the simple baseline would call almost any promotion a success.",
         "*This page does not change with the sidebar period: the test period is fixed.*"
     ], more=more_text)
 

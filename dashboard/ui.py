@@ -135,7 +135,8 @@ def chips(items: list[tuple[str, str]]) -> None:
 
 BADGE = {"Machine under-performs": ("#fff4e5", "#c26a00"), "Inspect payout settings": ("#fdecea", "#c0392b"),
          "Location": ("#efeaff", "#4318ff"), "Game keeps less per wager": ("#e6f8f1", "#01845a"),
-         "Too little data": ("#f1f3f8", "#707eae"), "Chance (luck)": ("#f1f3f8", "#707eae"), "No concern": ("#e6f8f1", "#01845a")}
+         "Too little data": ("#f1f3f8", "#707eae"), "Borderline, review again": ("#fff8e1", "#a86b00"),
+         "Not on the floor in this period": ("#f1f3f8", "#707eae"), "Chance (luck)": ("#f1f3f8", "#707eae"), "No concern": ("#e6f8f1", "#01845a")}
 
 
 def html_table(df, badge_col: str | None = None) -> None:

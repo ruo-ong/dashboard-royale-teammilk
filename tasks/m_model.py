@@ -210,6 +210,21 @@ def july(h: pd.DataFrame, chosen: type) -> tuple[pd.DataFrame, pd.DataFrame]:
     return f, pd.DataFrame(rows)
 
 
+def weekend_check(res: pd.DataFrame) -> dict:
+    """Fri-Sun totals in May-June, ordinary weekends only (no event day): how far off was each forecast?"""
+    out = {}
+    for label, cond in [("chosen", res["model"].str.contains(r"\[chosen\]")), ("flat", res["model"].str.startswith("Baseline A"))]:
+        r = res[cond].copy()
+        r = r[r["gaming_date"].dt.day_of_week >= 4]
+        r["weekend"] = r["gaming_date"] - pd.to_timedelta(r["gaming_date"].dt.day_of_week - 4, unit="D")
+        g = r.groupby("weekend").agg(actual=("actual", "sum"), forecast=("forecast", "sum"), days=("actual", "size"),
+                                     event_days=("event", lambda e: e.notna().sum()))
+        g = g[(g["days"] == 3) & (g["event_days"] == 0)]
+        out[label] = (g["actual"] / g["forecast"] - 1)
+    return {"weekends": len(out["chosen"]), "error_mean": out["chosen"].mean(), "error_sd": out["chosen"].std(ddof=1),
+            "flat_false_lift": out["flat"].mean()}
+
+
 def write_markdown(sel, met, chosen_model, decision, reg) -> None:
     allm = met[met["scope"] == "all test days"]
     lines = ["# Forecast model: protocol, validation and decision (task M7)", "",
@@ -239,22 +254,25 @@ def main() -> None:
     f, weekends = july(h, chosen)
     write_output("m5_july_forecast", f)
 
-    eligible = weekends[weekends["eligible_after_lead"]].sort_values(["promo_theo_uplift_usd", "friday"], ascending=[False, True])
-    best = eligible.iloc[0]
-    cost = 15000
-    same = eligible["forecast_coin_in_usd"].nunique() == 1
-    pick = (f"Every reachable weekend forecasts the same, so we take the first one after the {PROMO_LEAD_DAYS}-day lead "
-            f"({best['weekend']}): it leaves the next weekend as a same-month comparison." if same else
-            f"{best['weekend']} is the strongest reachable weekend in the forecast.")
-    decision = (f"The chosen model ({chosen.name.split(': ')[1]}) forecasts a July weekend at ${best['forecast_coin_in_usd'] / 1e6:.2f}M "
-                f"coin-in (${best['forecast_theo_usd'] / 1000:,.0f}k theo). At the uplift our own promotions achieved, one promotion "
-                f"weekend should add ${best['promo_theo_uplift_usd'] / 1000:,.0f}k of theo "
-                f"(${best['promo_theo_uplift_low_usd'] / 1000:,.0f}k-${best['promo_theo_uplift_high_usd'] / 1000:,.0f}k) for "
-                f"${cost / 1000:,.0f}k, so we fund it. {pick} The frozen forecast is also the baseline we will measure the promotion "
-                f"against, with the model's May-June bias ({met.loc[(met['model'].str.endswith('[chosen]')) & (met['scope'] == 'all test days'), 'bias_usd'].iloc[0] / 1000:+,.0f}k/day) "
-                f"as the known error to beat.")
+    eligible = weekends[weekends["eligible_after_lead"]].sort_values("friday")
+    best, comparison = eligible.iloc[0], (eligible.iloc[1] if len(eligible) > 1 else None)
+    wk = weekend_check(res)
+    low, high = wk["error_mean"] - 2 * wk["error_sd"], wk["error_mean"] + 2 * wk["error_sd"]
+    decision = (
+        f"The chosen model (day-of-week average) forecasts a July weekend at ${best['forecast_coin_in_usd'] / 1e6:.2f}M wagered "
+        f"(${best['forecast_theo_usd'] / 1000:,.0f}k expected win). We fund one promotion weekend, {best['weekend']}"
+        + (f", and keep {comparison['weekend']} without a promotion as a same-month comparison" if comparison is not None else "")
+        + f". At the uplift our own promotions achieved, it should add about ${best['promo_theo_uplift_usd'] / 1000:,.0f}k of expected win "
+        f"(${best['promo_theo_uplift_low_usd'] / 1000:,.0f}k-${best['promo_theo_uplift_high_usd'] / 1000:,.0f}k) for $15k. "
+        f"Can a lift be detected? On the {wk['weekends']} ordinary weekends of May-June, the model's weekend forecasts were off by "
+        f"{wk['error_mean']:+.1%} on average (normal range {low:+.0%} to {high:+.0%}), so a lift like our tournament's (+18%) would stand out, "
+        f"but one like Locals Week's (+6%) could not be told apart from forecast error. The model also changes how success is judged: "
+        f"against a flat daily average, an ordinary weekend already looks {wk['flat_false_lift']:+.0%} better, so the simple baseline "
+        f"would declare almost any promotion a success. The day-of-week forecast is the fair yardstick.")
     weekends["chosen"] = weekends["weekend"] == best["weekend"]
-    write_output("m5_decision", weekends.assign(decision=decision))
+    weekends["comparison"] = weekends["weekend"] == (comparison["weekend"] if comparison is not None else "")
+    write_output("m5_decision", weekends.assign(decision=decision, weekend_error_mean=wk["error_mean"], weekend_error_sd=wk["error_sd"],
+                                                 flat_baseline_false_lift=wk["flat_false_lift"], ordinary_test_weekends=wk["weekends"]))
     write_markdown(sel, met, chosen, decision, fitted if isinstance(fitted, Regression) else None)
 
     print("M3 April validation:\n" + sel.to_string(index=False, float_format=lambda v: f"{v:,.3f}"))

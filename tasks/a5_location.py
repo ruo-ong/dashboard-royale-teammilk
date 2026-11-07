@@ -26,6 +26,7 @@ from royale.cli import window_args
 from royale.data import load, load_base
 from royale.metrics import summarize
 from royale.outputs import write_output
+from royale.timeutil import to_gaming_date
 from royale.util import safe_ratio
 from tasks.a1_manager_list import manager_ten
 
@@ -142,8 +143,9 @@ def floor_map_figure(banks: pd.DataFrame) -> go.Figure:
         if closed:
             # 60% of the way along the walkway: in the gap between the zone label and the first banks.
             fig.add_annotation(x=a["x_m"] + 0.6 * (b["x_m"] - a["x_m"]), y=a["y_m"] + 0.6 * (b["y_m"] - a["y_m"]),
-                               text=(f"⚠ walkway closed<br>{pd.Timestamp(w['closed_from_utc']):%b %-d}–"
-                                     f"{pd.Timestamp(w['closed_to_utc']):%b %-d} ({w['closure_reason']})"),
+                               # Gaming dates, as on every other page: closed_to is exclusive, so the last closed day is the day before.
+                               text=(f"⚠ walkway closed<br>{to_gaming_date(w['closed_from_utc']):%b %-d}–"
+                                     f"{to_gaming_date(w['closed_to_utc']) - pd.Timedelta(days=1):%b %-d} ({w['closure_reason']})"),
                                showarrow=False, xanchor="right", xshift=-8, align="right",
                                font={"size": 12, "color": COLORS["text"]})
 

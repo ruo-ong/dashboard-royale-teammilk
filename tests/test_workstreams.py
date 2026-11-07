@@ -83,7 +83,7 @@ def test_every_machine_has_one_verdict():
     assert len(v) == v["machine_id"].nunique() == 310
     assert v.set_index("machine_id").loc["M-1158", "verdict"] == "Inspect"
     assert (v.loc[v["on_our_list"], "verdict"] == "Truly weak").all()
-    assert set(read_output("a9_list_comparison")["status"]) <= {"stays", "drops", "new"}
+    assert set(read_output("a9_list_comparison")["status"]) <= {"stays", "review", "drops", "new"}
 
 
 # ---------- D ----------
@@ -186,3 +186,37 @@ def test_estimate_is_consistent():
     assert fixed["costs"]["lease"] == pytest.approx(45 * 30)                  # cost_rules: $45 per active day
     weak = estimate("G-STD90", "B-38", "Northwind", "owned", 0.997, 30, july_adjust=False)
     assert weak["tpah"] < a["tpah"]                                            # Back Forty bank earns less than Center Pit
+
+
+# ---------- fixes from the external review ----------
+def test_borderline_verdict_is_stable_across_periods():
+    from royale.data import load_base
+    from tasks import a9_verdicts
+    from tasks.a1_manager_list import manager_ten
+    full = read_output("machine_verdicts").set_index("machine_id")
+    q2 = a9_verdicts.compute(load_base("2025-04-01", "2025-06-30"), "2025-04-01", "2025-06-30", read_output("c7_chronic"),
+                             {"Z-B40"}, manager_ten()).set_index("machine_id")
+    assert full.loc["M-1179", "verdict"] == q2.loc["M-1179", "verdict"] == "Borderline"
+
+
+def test_one_promotion_weekend_with_a_comparison_weekend():
+    p = read_output("portfolio").set_index("action_type_id")
+    assert p.loc["A-PROMO", "quantity"] == 1
+    d = read_output("m5_decision")
+    chosen, comparison = d[d["chosen"]], d[d["comparison"]]
+    assert len(chosen) == 1 and len(comparison) == 1
+    assert comparison["friday"].iloc[0] > chosen["friday"].iloc[0]
+
+
+def test_points_liability_is_consistent():
+    L = read_output("e3_points_liability").iloc[0]
+    assert L["points_outstanding"] == pytest.approx(L["points_awarded"] - L["points_redeemed"])
+    assert L["cost_if_all_redeemed_after_usd"] > L["cost_if_all_redeemed_before_usd"]
+    assert L["extra_cost_if_all_redeemed_usd"] == pytest.approx(L["cost_if_all_redeemed_after_usd"] - L["cost_if_all_redeemed_before_usd"])
+    assert 0 < L["extra_cost_at_observed_redemption_usd"] < L["extra_cost_if_all_redeemed_usd"]
+
+
+def test_comet_cash_is_played_less_in_both_halves():
+    g = read_output("a9_game_review").set_index("theme")
+    assert g.loc["Comet Cash", "played_less_in_both_halves"]
+    assert set(g.index[g["played_less_in_both_halves"]]) == {"Comet Cash"}

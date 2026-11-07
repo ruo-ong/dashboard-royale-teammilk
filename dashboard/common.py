@@ -84,7 +84,7 @@ def pct(x: float, digits: int = 0, signed: bool = False) -> str:
 
 
 # Plain-language findings and recommendations for a non-technical reader (the analysts' wording stays in the tables).
-PLAIN_VERDICT = {"Truly weak": "Machine under-performs", "Location": "Location", "Low-hold game": "Game keeps less per wager",
+PLAIN_VERDICT = {"Truly weak": "Machine under-performs", "Borderline": "Borderline, review again", "Location": "Location", "Low-hold game": "Game keeps less per wager",
                  "Inspect": "Inspect payout settings", "Watch list": "Too little data", "Unlucky": "Chance (luck)",
                  "Short time on floor": "Short time on floor", "Downtime": "Time out of service", "Fine": "No concern"}
 PLAIN_ADVICE = {
@@ -94,6 +94,7 @@ PLAIN_ADVICE = {
     "Low-hold game": "Keep. Players use it as much as nearby machines; its lower earnings reflect the game's higher payback to players.",
     "Truly weak": "Consider replacing. This game earns less than nearby machines across the floor, so the game title should be reviewed.",
     "Unlucky": "Keep. The shortfall is within the normal range of chance.",
+    "Borderline": "Review again. Its play is close to our cut-off, so the finding depends on the period chosen; decide as part of a review of its game title.",
     "Short time on floor": "Keep. It was on the floor for only part of the period.",
     "Downtime": "Keep, and address its reliability.",
     "Fine": "Keep."}

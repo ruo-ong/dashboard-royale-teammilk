@@ -71,5 +71,7 @@ def render() -> None:
             "code and this report, and draft text. All figures are produced by the code in the repository from the challenge data, "
             "checked by automated tests, and reviewed by the team. Each team member records their own use in the appendix.")
         st.markdown(
-            "**Reproducing the report.** From the repository folder:\n```sh\npip install -r requirements.txt\npython -m tasks.run_all\n"
+            "**Reproducing the report.** All code, data and tests are in the repository: "
+            "[github.com/ruo-ong/dashboard-royale-teammilk](https://github.com/ruo-ong/dashboard-royale-teammilk). "
+            "From the repository folder:\n```sh\npip install -r requirements.txt\npython -m tasks.run_all\n"
             "pytest -q\nstreamlit run dashboard/app.py\n```")
