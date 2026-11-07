@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Generated tables: rebuild locally (see README). Keep the folder itself.
+outputs/*
+!outputs/.gitkeep

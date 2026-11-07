@@ -1,5 +1,46 @@
 # Dashboard Royale
 
+## Team Milk: how to run
+
+**One-time setup** (Python 3.11+, from the repo folder):
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt    # pinned versions + our royale/ helper package
+python scripts/verify_data.py      # both must print PASS
+python scripts/verify_semantics.py
+```
+
+**Build the shared tables** (outputs/ is gitignored, so rebuild after every pull):
+
+```sh
+python -m tasks.f4_machine_day_base   # -> outputs/machine_day_base.parquet, reconciliation must print all PASS
+pytest -q                             # helper + base-table checks
+```
+
+**Use the helpers** instead of hand-rolling filters, unit conversions or time zones:
+
+```python
+from royale.data import load, window, con          # load("machine_day", start=..., end=...): on-floor rows only by default
+from royale.timeutil import to_gaming_date, to_shift  # UTC timestamp -> gaming date / shift (DST-safe)
+from royale.util import cents_to_usd, safe_ratio
+from royale.outputs import read_output, write_output  # outputs/<name>.parquet
+from royale.metrics import summarize                  # all shared metrics as ratios of sums
+
+base = window(read_output("machine_day_base"), "2025-01-01", "2025-06-30")
+by_machine = summarize(base, "machine_id")   # tpah, availability, luck_z, hit_rate_z, ...
+```
+
+**Conventions**
+
+- Each task writes one table with `write_output("<task id>_<name>", df)`, e.g. `a3_luck`. Hand-off tables keep their names from the plan (`machine_verdicts`, `zone_day`, ...). The dashboard reads only `outputs/`.
+- Task scripts go in `tasks/` and run with `python -m tasks.<file>` from the repo root.
+- Metric definitions: [docs/METRICS.md](docs/METRICS.md). Log every claim as you go: [docs/claims_log.csv](docs/claims_log.csv).
+- DuckDB 2.0: query results have no `.fetchone()`. Use `.fetchall()[0]` or `.df()`.
+
+---
+
 ## Luck, Location, or a Leak?
 
 > Management is about to replace the ten machines that earned the least. Your dashboard could stop an expensive mistake—or show that management is right.
