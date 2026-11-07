@@ -1,0 +1,368 @@
+# Claims & Evidence appendix
+
+Team Milk · Dashboard Royale (The Gilded Ace is fictional; its data is synthetic).
+Generated from `docs/claims_log.csv` by `python -m tasks.s1_appendix`: 34 claims.
+Every table named below is built by `python -m tasks.run_all` into `outputs/`.
+
+## Data notes and foundations
+
+### F4-01 · data note
+
+machine_day_base (on-floor machine-days) reconciles to the cent with prepared_daily_view and property_day.
+
+- **Table / query:** `python -m tasks.f4_machine_day_base (reconcile())`
+- **Result:** 55,092 rows = 56,110 - 1,018 off-floor; house win $23,638,155.10, theo $23,545,364.48, coin-in $248,905,219.25; gap $0.00
+- **Alternative explanation tested:** Off-floor rows (meter_status not_installed/retired) checked: scheduled_seconds = 0 and location null, so they are absences, not zero sales
+- **Limitation:** None for totals; synthetic data
+- **Status:** verified · **Dashboard:** Methods page
+
+### F2-01 · data note
+
+On the DST night the 2025-03-08 grave shift is listed until 14:00 UTC on 3/9, but gaming date 3/9 (and its day shift) starts at 13:00 UTC, so the two shifts overlap by 1 hour.
+
+- **Table / query:** `shift_roster distinct (gaming_date, shift, start_utc, end_utc) vs calendar_day`
+- **Result:** 1 of 181 days does not tile; royale.timeutil.to_shift assigns the gaming date first, so 13:00-14:00 UTC on 3/9 counts as the 3/9 day shift
+- **Alternative explanation tested:** Checked every other day: the 3 shifts tile the gaming day exactly
+- **Limitation:** Affects staffing counts for 1 hour on 1 day only
+- **Status:** verified · **Dashboard:** Methods page
+
+### F4-02 · data note
+
+Machine placements are almost static: 4 machines moved, no machine changed game config, and every on-floor day is a full day.
+
+- **Table / query:** `placements (machines with >1 interval); machine_day config_id per machine; machine_day.scheduled_seconds vs calendar_day`
+- **Result:** 4 moved machines; 0 config changes; 0 partial on-floor days
+- **Alternative explanation tested:** 
+- **Limitation:** Only 4 moves limits the natural-experiment evidence for task A6
+- **Status:** verified · **Dashboard:** Machine trial page
+
+### F4-03 · inspection lead
+
+M-1158 (#2 on the manager's bottom 10) pays out on far more spins than its game's configured hit probability and holds well below expectation.
+
+- **Table / query:** `summarize(machine_day_base, 'machine_id'): hit_rate_z, luck_z, observed vs expected hold`
+- **Result:** hit-rate z = +124, luck z = -4.6, observed hold 3.0% vs expected 10.0% over 181 days; next-largest |hit-rate z| on the floor is 2.8
+- **Alternative explanation tested:** See A4-01: ticket timing, game config on other Desert Gold machines, one-jackpot explanation
+- **Limitation:** Found in the F4 smoke test; unverified. Wording: inspection lead, not wrongdoing
+- **Status:** confirmed by A4-01 · **Dashboard:** Machine trial page
+
+## Q1 · The machine trial
+
+### A1-01 · finding
+
+The manager's bottom 10 by total house win (Jan 1-Jun 30) is 9 Back Forty machines plus M-1118 in the High-Limit Room.
+
+- **Table / query:** `python -m tasks.a1_manager_list -> a1_manager_list`
+- **Result:** Matches the guide's DuckDB example query exactly (same 10, same order)
+- **Alternative explanation tested:** n/a (definition of the list under test)
+- **Limitation:** Ranks raw house win, which mixes luck, exposure and location
+- **Status:** verified · **Dashboard:** Machine trial page: the manager's list
+
+### A2-01 · finding
+
+Measured per available hour of theo (TPAH), 8 of the manager's 10 stay in the bottom 10; 2 leave: M-1118 (retired Feb 25, on floor 55 of 181 days, TPAH $19.28 vs floor median $18.15) and M-1158 (house win $36,165 below theo).
+
+- **Table / query:** `python -m tasks.a2_exposure -> a2_exposure (rank_house_win, rank_tpah, rank_note); chart a2_rank_shift`
+- **Result:** M-1118 rank 4 -> 176; M-1158 rank 2 -> 46; the 8 that stay are all in the Back Forty
+- **Alternative explanation tested:** Exposure (days on floor, availability) tested; availability is 99.5-99.9% for all 10, so downtime explains none of the list
+- **Limitation:** TPAH still contains location and game math (tested in A5)
+- **Status:** verified · **Dashboard:** Machine trial page: funnel / rank shift
+
+### A3-01 · finding
+
+Luck explains the low result for only 2 of the manager's 10: M-1158 (luck z -4.6, unlucky in 6 of 6 months, z -4.2 without its biggest day) and M-1181 (z -2.4, 5 of 6 months). The other 8 are within ordinary luck (|z| < 2).
+
+- **Table / query:** `python -m tasks.a3_luck -> a3_luck, a3_luck_monthly; chart a3_luck_z_hist`
+- **Result:** Floor-wide luck z: mean -0.07, sd 1.09, 6.5% beyond +-2 (about 5% expected), so the variance formula is sound
+- **Alternative explanation tested:** One-jackpot vs steady drift: z recomputed without each machine's biggest day; M-1158's shortfall is a steady drift, not one event
+- **Limitation:** With 310 machines, ~15 beyond +-2 are expected by chance alone; M-1158's -4.6 is far outside that
+- **Status:** verified · **Dashboard:** Machine trial page: luck histogram
+
+### A5-01 · finding
+
+The Back Forty is the weakest zone: TPAH $11.71 vs $16.64-$21.36 elsewhere, and all 8 of its banks are in the bottom quarter of the 51 banks. Every game placed there earns 57-69% of what the same game earns floor-wide.
+
+- **Table / query:** `python -m tasks.a5_location -> bank_scores, a5_game_by_zone; chart a5_floor_map`
+- **Result:** Zone TPAH Jan 1-Mar 2 (before the walkway closure): Back Forty $12.91 vs >= $17.42 elsewhere; Mar 3-Apr 6 (closed): $9.19; Apr 7-Jun 30: $11.87
+- **Alternative explanation tested:** Game mix: same-game comparison across zones (a5_game_by_zone). Walkway closure: Back Forty was already weakest before Mar 3, so the closure deepened but did not create the gap
+- **Limitation:** Closure effect not yet separated from trend (difference-in-differences is task B4)
+- **Status:** verified · **Dashboard:** Machine trial page: floor map; Demand page
+
+### A5-02 · finding
+
+Most low peer-index machines are low-hold games that people play normally, not unpopular machines: 44 of the 51 machines with TPAH under 0.7x their bank neighbours have play volume within 20% of their neighbours or higher. 5 of the manager's 10 are Royal Draw (95% RTP) and are played 14-22% MORE than their neighbours.
+
+- **Table / query:** `a5_location: peer_index (theo per available hour vs bank peers) and volume_peer_index (coin-in per available hour vs bank peers)`
+- **Result:** Low-hold reads: Royal Draw 24, Comet Cash 10, Lucky Lanterns 10
+- **Alternative explanation tested:** Volume comparison (coin-in per hour) separates 'nobody plays it' from 'the game keeps less per bet'
+- **Limitation:** The 20% volume band is a starting threshold; lock at Gate 1. Replacing a popular low-hold game may lose its players
+- **Status:** verified · **Dashboard:** Machine trial page: verdict table
+
+### A5-03 · finding
+
+Comet Cash is weak wherever it stands: all 7 machines read as 'machine' (low theo AND low play vs neighbours) are Comet Cash, across 5 zones, played 76-80% as much as their neighbours. That points to replacing the game, not moving the machine.
+
+- **Table / query:** `a5_location where location_read = 'machine'`
+- **Result:** M-1173, M-1139, M-1262, M-1274, M-1179, M-1300, M-1155; peer index 0.56-0.66
+- **Alternative explanation tested:** Location: the pattern holds in Bar Row, Center Pit, Main Entrance, Hotel Corridor and Back Forty, so it is not one weak spot
+- **Limitation:** M-1265 (Comet Cash, Back Forty) sits on the threshold (volume 0.801) and reads 'low-hold game'; treat as borderline
+- **Status:** to confirm in A9 · **Dashboard:** Machine trial page: verdict table; $100k plan (R3c)
+
+### A4-01 · inspection lead
+
+M-1158 is the only inspection lead on the floor: it pays out on 22.3% more spins than its configured hit probability, in every month since Jan 1, and holds 3.0% against 10.0% expected. Inspect its payout configuration before any replacement decision.
+
+- **Table / query:** `python -m tasks.a4_leak -> a4_leak, a4_ticket_changes; chart a4_cumulative_residual`
+- **Result:** hit-rate z +124 (extreme in 6 of 6 months); luck z -4.6, still -4.2 without its biggest day; house win $36,165 below theo; leaves the luck band in mid-March and keeps drifting
+- **Alternative explanation tested:** Luck (persistence + biggest-day removal); its Mar 10 fault repair (hit ratio 1.218 before vs 1.226 after: no change); a wrong game config (the other Desert Gold machines are within normal range); tampering reports (none on M-1158)
+- **Limitation:** Inspection lead, not proof of wrongdoing. The pattern starts before Jan 1, so its cause is outside the data window
+- **Status:** verified · **Dashboard:** Machine trial page: leak test; $100k plan (R3f inspect)
+
+### A4-02 · finding
+
+Repairs, maintenance and moves do not change how machines pay out: across 1,214 tickets, no before/after shift in hit rate or hold reaches |z| >= 4, and the change scores look like pure noise (sd 1.06 and 1.02).
+
+- **Table / query:** `a4_ticket_changes (28 gaming days before vs after each ticket, ticket day excluded)`
+- **Result:** 0 of 1,214 tickets shift; floor-wide hit-rate z sd 1.01 without M-1158
+- **Alternative explanation tested:** Multiple testing: threshold raised to |z| >= 4 because ~6 false alarms are expected at |z| >= 3
+- **Limitation:** Tickets near the window edges have shorter comparison windows (min 7 days per side)
+- **Status:** verified · **Dashboard:** Machine trial page: leak test
+
+### A6-01 · finding
+
+Moving a machine to a stronger bank raises its play value, but by an uncertain amount: across the 3 moves to stronger banks, TPAH rose $5.58/h on average net of the floor trend, capturing about half (52%) of the predicted bank gap. The one Back Forty -> Main Entrance move more than doubled TPAH ($14.00 -> $32.14/h).
+
+- **Table / query:** `python -m tasks.a6_moves -> a6_moves`
+- **Result:** Realisation range -57% to +195%; effects range -$0.95 to +$17.28/h
+- **Alternative explanation tested:** Floor-wide trend subtracted (difference-in-differences against the whole floor over the same days); move day excluded
+- **Limitation:** Only 4 moves (3 to stronger banks), one with 20 days after; use as a rough scale factor for R3a, with a wide range
+- **Status:** verified · **Dashboard:** $100k plan (R3a move machines)
+
+### A8-01 · finding
+
+The manager's 10 earned $554k less than a typical machine. Location explains $203k, high-payback game settings $148k, short time on the floor $133k, luck $63k (mostly M-1158), lower play volume only $7k, and downtime about $0. The machines are not unpopular; they stand in a weak spot, run games that keep little per bet, or were not on the floor long.
+
+- **Table / query:** `python -m tasks.a8_decomposition -> a8_decomposition; chart a8_decomposition`
+- **Result:** Pieces add up exactly to each machine's gap (max error $0.000000 over 310 machines)
+- **Alternative explanation tested:** Exposure, availability, location (bank peers), play volume, game hold and luck separated in one exact identity
+- **Limitation:** Typical machine = median availability and median TPAH; bank peer medians from 4-7 machines; location piece includes the walkway closure months
+- **Status:** verified · **Dashboard:** Machine trial page: decomposition (centerpiece)
+
+### A11-01 · finding
+
+No machine loses money with average luck: every machine's theo exceeds its supplied costs, and no leased machine's lease + service cost exceeds its theo. 8 of the manager's 10 are leased; on expected contribution per available hour they are 8 of the floor's bottom 10, still earning $3.78-$7.27/h.
+
+- **Table / query:** `python -m tasks.a11_profit -> a11_profit`
+- **Result:** 0 machines with negative expected contribution; 0 leased machines with lease + service > theo
+- **Alternative explanation tested:** Expected contribution (theo) used instead of house win, so luck does not decide profitability
+- **Limitation:** Supplied costs are partial (no rent, tax, depreciation, full staffing): contribution after supplied costs only
+- **Status:** verified · **Dashboard:** $100k plan (R3c replacement economics)
+
+### A9-01 · finding
+
+Only 1 of the manager's 10 is a real replacement candidate. The others: Location 4, Watch list 2, Low-hold game 2, Inspect 1, Truly weak 1. Our list is the 7 'Truly weak' machines, all Comet Cash: replace the title, not one machine.
+
+- **Table / query:** `machine_verdicts, a9_list_comparison`
+- **Result:** Each verdict from the exact A8 decomposition, with the A4 lead and A2 evidence rules first
+- **Alternative explanation tested:** Closure zone and chronic faults kept as secondary flags
+- **Limitation:** Thresholds (0.7 / 0.8 / 60 days) to be locked at Gate 1
+- **Status:** verified · **Dashboard:** Machine trial page; Summary
+
+## Q2 · Demand
+
+### B9-01 · finding
+
+Floor demand was broadly flat: coin-in per day went from $1.34M in 2025-01 to a peak of $1.41M in 2025-02 and $1.32M in 2025-06 (-1.5%), while 8 more machines came onto the floor in March-April, so play value per available hour slipped from $17.75 to $16.97.
+
+- **Table / query:** `b1_monthly`
+- **Result:** see claim
+- **Alternative explanation tested:** Per active machine and per available hour, not totals
+- **Limitation:** Machine count changes between 300 and 308
+- **Status:** verified · **Dashboard:** Demand page
+
+### B9-02 · finding
+
+The casino tracked Las Vegas: indexed to January, its coin-in per day ended June 2.8 points above the city's visitors per day, so the floor-wide level needs no casino-specific explanation (city data is published later and describes all of Las Vegas, so it explains but cannot forecast).
+
+- **Table / query:** `b6_context`
+- **Result:** see claim
+- **Alternative explanation tested:** Monthly correlation with city visitors per day
+- **Limitation:** City data is all Las Vegas and published later: explains, cannot forecast
+- **Status:** verified · **Dashboard:** Demand page
+
+### B9-03 · finding
+
+The biggest local change was the walkway closure (Mar 3-Apr 6): with the Main Entrance-Back Forty walkway shut, Back Forty play value fell 31%, occupancy 28% and foot traffic 32% relative to the rest of the floor, costing about $163k of theo ($143k-$185k); after it reopened the gap closed to 4%.
+
+- **Table / query:** `closure_effect (B4)`
+- **Result:** see claim
+- **Alternative explanation tested:** Difference-in-differences vs unaffected zones; affected zones from shortest walk to the nearest entrance with/without the closed walkway; foot traffic checked separately
+- **Limitation:** One affected zone; range from week-to-week spread of the before period
+- **Status:** verified · **Dashboard:** Demand page
+
+### B9-04 · finding
+
+Big citywide weekends lift the floor: Super Bowl LIX weekend +23%, College basketball tournament opening rounds +17%, EDC Las Vegas festival weekend +15%, NAB Show +4% in coin-in vs the same weekday nearby, while CES and CinemaCon show no measurable effect.
+
+- **Table / query:** `b2_event_uplift`
+- **Result:** see claim
+- **Alternative explanation tested:** Baseline = same weekday within +-4 weeks, excluding all event days and holidays
+- **Limitation:** Range is +-2 SD of normal same-weekday days
+- **Status:** verified · **Dashboard:** Demand page
+
+### B9-05 · finding
+
+The casino's own promotions work: Gilded Ace Winter Slot Tournament +18% ($853k coin-in, $82k theo over 3 days); Gilded Ace Locals Appreciation Week +6% ($517k coin-in, $47k theo over 7 days).
+
+- **Table / query:** `b2_event_uplift (property events)`
+- **Result:** see claim
+- **Alternative explanation tested:** Same baseline as B9-04
+- **Limitation:** Only two promotions to learn from
+- **Status:** verified · **Dashboard:** Demand page
+
+### B9-06 · finding
+
+Downtime is not what moved demand: it cost $103k of theo over six months, $12k-$20k a month with no trend.
+
+- **Table / query:** `downtime_cost (C3)`
+- **Result:** see claim
+- **Alternative explanation tested:** Monthly lost theo checked for trend
+- **Limitation:** Theo, not house win; assumes play does not move to neighbouring machines
+- **Status:** verified · **Dashboard:** Demand page
+
+## Q3 · Downtime
+
+### C-04 · data note
+
+748 of 1207 fault tickets were typed in after the technician had already started (median ~8 minutes of paperwork lag), so 'work started - recorded' is negative for them. Wait for a technician is measured from when the machine went down.
+
+- **Table / query:** `tickets_clean (C1)`
+- **Result:** 0 missing timestamps; 0 negative stages once measured from 'opened'
+- **Alternative explanation tested:** The plan's recorded-to-start definition was rejected: negative for 62% of faults
+- **Limitation:** Recording lag is still reported separately
+- **Status:** verified · **Dashboard:** Downtime page
+
+### C-03 · finding
+
+Downtime cost about $103k of theo over six months ($95k-$113k); 98% of down hours were unplanned faults. Daily meters, hourly meters and ticket durations all reconcile at 5,021 hours.
+
+- **Table / query:** `downtime_cost, c2_downtime_totals, c3_hour_of_week`
+- **Result:** Each down hour valued with the machine's TPAH x a weekday-hour demand index (0.13-2.42)
+- **Alternative explanation tested:** Low/high: bank TPAH vs machine TPAH
+- **Limitation:** Gross of any play that moved to a neighbouring machine (C9 not done)
+- **Status:** verified · **Dashboard:** Downtime page
+
+### C-01 · finding
+
+The repair bottleneck is waiting for a technician, and it depends on how many are on duty: on the day shift the mean wait is 0.09 h with 2 technicians, 0.73-1.52 h with 1, and 4.9 h on the 22 day-shift faults with none on duty.
+
+- **Table / query:** `c5_staffing, c5_bottleneck`
+- **Result:** Compared within the same shift across headcount levels
+- **Alternative explanation tested:** Response measured from 'opened' (see C-04)
+- **Limitation:** Grave shift always has 1 technician, so its 2-tech effect is borrowed from day/swing
+- **Status:** verified · **Dashboard:** Downtime page
+
+### C-02 · finding
+
+Ridgeline machines fault 1.69 times per 1,000 available hours (90% interval 1.59-1.81), 2.4x Northwind and 3.7x Halcyon.
+
+- **Table / query:** `manufacturer_reliability (C6)`
+- **Result:** Poisson intervals do not overlap
+- **Alternative explanation tested:** Preventive maintenance: only 3 maintenance tickets (c6_maintenance_check)
+- **Limitation:** What maintenance buys is not measurable from this data
+- **Status:** verified · **Dashboard:** Downtime page
+
+## Q4 · Tracked players
+
+### D-01 · finding
+
+Tracked (loyalty-card) play was 65.8% of all coin-in. Of 96,559 carded players, 16.1% came out ahead; the median tracked net was $-96 and the mean $-161.
+
+- **Table / query:** `player_totals, d2_overview`
+- **Result:** Player totals reconcile to player_period exactly
+- **Alternative explanation tested:** Carded vs all play compared with machine_day carded columns
+- **Limitation:** Tracked play only; a carded guest may also play uncarded
+- **Status:** verified · **Dashboard:** Players page
+
+### D-02 · finding
+
+Tracked results are concentrated: the top 10% of players produce 64% of tracked theo (top 1%: 20%).
+
+- **Table / query:** `d3_concentration, d3_lorenz`
+- **Result:** Same measured for coin-in and for losses among losing players
+- **Alternative explanation tested:** Losses among losers are slightly less concentrated than theo
+- **Limitation:** Tracked play only
+- **Status:** verified · **Dashboard:** Players page
+
+### D-03 · finding
+
+Light players often come out ahead and heavy players almost never do: 33% of the lightest coin-in decile ended ahead vs 10% of the heaviest.
+
+- **Table / query:** `d4_luck_players`
+- **Result:** Actual net vs expected (-theo) by decile
+- **Alternative explanation tested:** Luck averages out with more play
+- **Limitation:** Tracked play only
+- **Status:** verified · **Dashboard:** Players page
+
+### D-04 · finding
+
+The highest-loss 1% of tracked players (966 people) carry 18% of tracked losses and are frequent visitors (median 60 visits). Protective, opt-in measures are suggested outside the budget; nothing in the plan targets them for more play.
+
+- **Table / query:** `d7_protective`
+- **Result:** Aggregate profile only; no individual targeting
+- **Alternative explanation tested:** Long single visits are a different, small group
+- **Limitation:** Tracked play only
+- **Status:** verified · **Dashboard:** Players page
+
+## Q5 · Comps
+
+### E-01 · finding
+
+On May 1, 2025 the points needed per comp dollar fell 56% (13.1 -> 5.8) for every tier at once (Base 15.0->7.0, Gold 12.0->5.6, Platinum 9.0->4.2); the loyalty system knew immediately. Comp cost reconciles to POS cost of goods to the cent ($190,669).
+
+- **Table / query:** `e3_breaks, e3_change, e3_by_tier, e1_comp_series`
+- **Result:** Break search over every weekly program metric; this one is strongest by far
+- **Alternative explanation tested:** A tier-change break in February is early-year tier qualification, not the program
+- **Limitation:** Program rules are inferred from the ledger
+- **Status:** verified · **Dashboard:** Comps page
+
+### E-02 · finding
+
+We can't tell yet whether the May 1 comp change paid for itself: in the 8 weeks after, comp cost rose $278/week while tracked theo, net of a -3.2% city trend, changed $+2,839/week (range $-19,933 to $+25,612).
+
+- **Table / query:** `e4_change_impact`
+- **Result:** City trend allowed for; tiers checked for a control group (none: all changed)
+- **Alternative explanation tested:** No untreated group exists
+- **Limitation:** Only 8 weeks after; a pilot with a control group would answer it
+- **Status:** verified · **Dashboard:** Comps page
+
+## Forecast model
+
+### M-01 · finding
+
+On a frozen time split, the weekday-average forecast was chosen in April (MAE $40,715); on May-June it misses daily coin-in by $68,699 on average (5.0%) vs $218,258 for a constant mean. Its July forecast sizes the promotion benefit and is the baseline the promotion will be measured against.
+
+- **Table / query:** `forecast_results, m4_metrics, docs/MODEL_PROTOCOL.md (committed before the model), docs/MODEL.md`
+- **Result:** see claim
+- **Alternative explanation tested:** Two richer candidates lost in April (trend over-extrapolated) and would also have lost on May-June
+- **Limitation:** Bias +39,286/day in May-June (June demand fell)
+- **Status:** verified · **Dashboard:** Model page
+
+## Q6 · The $100k plan
+
+### R-01 · recommendation
+
+Fund: Machine inspection and paytable verification x1 ($1,200); Relocate one machine x3 ($5,400); Property promotion weekend x2 ($30,000); keep $63,400. Expected net theo $84,144 at the mid estimate.
+
+- **Table / query:** `portfolio, r3_benefits, r5_sensitivity, r6_measurement, r7_tradeoffs`
+- **Result:** Every action type priced and estimated; best combination of up to 3 types searched exhaustively
+- **Alternative explanation tested:** Promotion and moves are slightly negative at their low estimates (r5_sensitivity)
+- **Limitation:** Benefits are theo estimates from six months of synthetic data
+- **Status:** verified · **Dashboard:** $100k plan page
+
+## AI-use disclosure
+
+| Who | Tool | Used for |
+| --- | --- | --- |
+| Team (shared repo) | Claude (Anthropic), via Claude Code | Planning the work, writing and testing the analysis code (`royale/`, `tasks/`, `tests/`) and the dashboard (`dashboard/`), drafting dashboard text and this appendix. Every number comes from the code in this repository and is checked by automated tests (reconciliations, leakage and budget rules). |
+| _each teammate: add a row_ | | |

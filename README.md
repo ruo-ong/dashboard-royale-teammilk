@@ -12,24 +12,34 @@ python scripts/verify_data.py      # both must print PASS
 python scripts/verify_semantics.py
 ```
 
-**Build the shared tables** (outputs/ is gitignored, so rebuild after every pull):
+**Build everything, test it, open the dashboard** (outputs/ is gitignored, so rebuild after every pull):
 
 ```sh
-python -m tasks.f4_machine_day_base   # -> outputs/machine_day_base.parquet, reconciliation must print all PASS
-python -m tasks.a1_manager_list       # -> a1_manager_list           (the GM's bottom 10, Jan-Jun)
-python -m tasks.a2_exposure           # -> a2_exposure               (+ charts/a2_rank_shift)
-python -m tasks.a3_luck               # -> a3_luck, a3_luck_monthly  (+ charts/a3_luck_z_hist)
-python -m tasks.a5_location           # -> a5_location, bank_scores, a5_game_by_zone (+ charts/a5_floor_map)
-python -m tasks.a4_leak               # -> a4_leak, a4_ticket_changes (+ charts/a4_cumulative_residual)
-python -m tasks.a6_moves              # -> a6_moves
-python -m tasks.a8_decomposition      # -> a8_decomposition          (+ charts/a8_decomposition)
-python -m tasks.a11_profit            # -> a11_profit
-pytest -q                             # all checks
+python -m tasks.run_all          # every output table in dependency order (~1 min)
+pytest -q                        # 86 checks: reconciliations, leakage, budget rules, every dashboard page
+streamlit run dashboard/app.py   # http://localhost:8501
 ```
 
-Analysis tasks take `--start YYYY-MM-DD --end YYYY-MM-DD` (default: the full Jan 1 - Jun 30 window).
-Each one also exposes a `compute(base, ...)` function, so the dashboard can recompute it live for any date range.
-Charts are written to `outputs/charts/` as HTML (and PNG when Chrome is installed).
+| Workstream | Script(s) | Main outputs |
+| --- | --- | --- |
+| F · foundations | `tasks/f4_machine_day_base.py` | `machine_day_base` |
+| A · Q1 machine trial | `tasks/a1_manager_list.py` … `a11_profit.py`, `a9_verdicts.py` | `a2_exposure`, `a3_luck`, `a4_leak`, `a5_location`, `bank_scores`, `a6_moves`, `a8_decomposition`, `a11_profit`, `machine_verdicts` |
+| B · Q2 demand | `tasks/b_demand.py`, `tasks/b9_story.py` | `b1_floor_trend`, `b2_event_uplift`, `zone_day`, `b5_traffic_daily`, `closure_effect`, `b6_context`, `b9_story` |
+| C · Q3 downtime | `tasks/c_downtime.py` | `tickets_clean`, `downtime_cost`, `c3_hour_of_week`, `c5_staffing`, `manufacturer_reliability`, `c7_chronic`, `tech_effect` |
+| D · Q4 tracked players | `tasks/d_players.py` | `player_totals`, `d3_concentration`, `d4_luck_players`, `d5_segments`, `d7_protective` |
+| E · Q5 comps | `tasks/e_comps.py` | `comp_weekly`, `e3_change`, `e4_change_impact`, `e5_tier_economics` |
+| M · forecast model | `tasks/m_model.py` ([protocol](docs/MODEL_PROTOCOL.md) committed first; [write-up](docs/MODEL.md)) | `forecast_results`, `m4_metrics`, `m5_decision` |
+| R · Q6 $100k plan | `tasks/r_plan.py` | `r1_costs`, `r3_benefits`, `portfolio`, `r5_sensitivity`, `r6_measurement`, `r7_tradeoffs` |
+| S · submission | `tasks/s1_appendix.py` | [docs/APPENDIX.md](docs/APPENDIX.md) (Claims & Evidence appendix) |
+| W · dashboard | `dashboard/app.py`, `dashboard/views/*.py` | reads only `outputs/` |
+
+Any task also runs alone (`python -m tasks.a2_exposure --start 2025-04-01 --end 2025-06-30`); each exposes a
+`compute(...)` function, which is how the machine-trial page recomputes live for any period.
+Charts are also written to `outputs/charts/` as HTML (and PNG when Chrome is installed).
+
+**Deploy (public link for judges):** push to GitHub, then on [share.streamlit.io](https://share.streamlit.io) create an app
+from this repo with main file `dashboard/app.py` (Python 3.12). `outputs/` is not in git, so the app builds it on first
+start (about a minute). Test the link in a private browser window.
 
 **Use the helpers** instead of hand-rolling filters, unit conversions or time zones:
 

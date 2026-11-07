@@ -17,6 +17,7 @@ ORDER = [
     "d_players", "e_comps",
     "m_model",                               # needs B2 (event uplift) for the July decision
     "r_plan",                                # needs everything above
+    "s1_appendix",                           # docs/APPENDIX.md from the claims log
 ]
 
 
