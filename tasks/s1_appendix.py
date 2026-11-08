@@ -2,7 +2,7 @@
 
 Run:  python -m tasks.s1_appendix
 For each claim: the table/query -> result -> alternative explanation tested -> limitation.
-Regenerate after editing the claims log; edit the AI-use section below by hand in the CSV-free part of this file.
+Regenerate after editing the claims log. The AI-use disclosure is on the dashboard (Methods and evidence page), not here.
 """
 from __future__ import annotations
 
@@ -14,13 +14,6 @@ GROUPS = [("F", "Data notes and foundations"), ("A", "Q1 · The machine trial"),
           ("C", "Q3 · Downtime"), ("D", "Q4 · Tracked players"), ("E", "Q5 · Comps"), ("M", "Forecast model"),
           ("R", "Q6 · The $100k plan")]
 
-AI_USE = """## AI-use disclosure
-
-| Who | Tool | Used for |
-| --- | --- | --- |
-| Team (shared repo) | Claude (Anthropic), via Claude Code | Planning the work, writing and testing the analysis code (`royale/`, `tasks/`, `tests/`) and the dashboard (`dashboard/`), drafting dashboard text and this appendix. Every number comes from the code in this repository and is checked by automated tests (reconciliations, leakage and budget rules). |
-| _each teammate: add a row_ | | |
-"""
 
 
 def render() -> str:
@@ -39,7 +32,6 @@ def render() -> str:
                       f"- **Table / query:** `{r.table_query}`", f"- **Result:** {r.result}",
                       f"- **Alternative explanation tested:** {r.alternative_tested}", f"- **Limitation:** {r.limitation}",
                       f"- **Status:** {r.status} · **Dashboard:** {r.dashboard_location}", ""]
-    lines += [AI_USE]
     return "\n".join(lines)
 
 

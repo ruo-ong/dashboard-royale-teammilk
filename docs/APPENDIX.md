@@ -1,20 +1,10 @@
 # Claims & Evidence appendix
 
 Team Milk · Dashboard Royale (The Gilded Ace is fictional; its data is synthetic).
-Generated from `docs/claims_log.csv` by `python -m tasks.s1_appendix`: 36 claims.
+Generated from `docs/claims_log.csv` by `python -m tasks.s1_appendix`: 37 claims.
 Every table named below is built by `python -m tasks.run_all` into `outputs/`.
 
 ## Data notes and foundations
-
-### F4-01 · data note
-
-machine_day_base (on-floor machine-days) reconciles to the cent with prepared_daily_view and property_day.
-
-- **Table / query:** `python -m tasks.f4_machine_day_base (reconcile())`
-- **Result:** 55,092 rows = 56,110 - 1,018 off-floor; house win $23,638,155.10, theo $23,545,364.48, coin-in $248,905,219.25; gap $0.00
-- **Alternative explanation tested:** Off-floor rows (meter_status not_installed/retired) checked: scheduled_seconds = 0 and location null, so they are absences, not zero sales
-- **Limitation:** None for totals; synthetic data
-- **Status:** verified · **Dashboard:** Methods page
 
 ### F2-01 · data note
 
@@ -24,6 +14,16 @@ On the DST night the 2025-03-08 grave shift is listed until 14:00 UTC on 3/9, bu
 - **Result:** 1 of 181 days does not tile; royale.timeutil.to_shift assigns the gaming date first, so 13:00-14:00 UTC on 3/9 counts as the 3/9 day shift
 - **Alternative explanation tested:** Checked every other day: the 3 shifts tile the gaming day exactly
 - **Limitation:** Affects staffing counts for 1 hour on 1 day only
+- **Status:** verified · **Dashboard:** Methods page
+
+### F4-01 · data note
+
+machine_day_base (on-floor machine-days) reconciles to the cent with prepared_daily_view and property_day.
+
+- **Table / query:** `python -m tasks.f4_machine_day_base (reconcile())`
+- **Result:** 55,092 rows = 56,110 - 1,018 off-floor; house win $23,638,155.10, theo $23,545,364.48, coin-in $248,905,219.25; gap $0.00
+- **Alternative explanation tested:** Off-floor rows (meter_status not_installed/retired) checked: scheduled_seconds = 0 and location null, so they are absences, not zero sales
+- **Limitation:** None for totals; synthetic data
 - **Status:** verified · **Dashboard:** Methods page
 
 ### F4-02 · data note
@@ -78,6 +78,26 @@ Luck explains the low result for only 2 of the manager's 10: M-1158 (luck z -4.6
 - **Limitation:** With 310 machines, ~15 beyond +-2 are expected by chance alone; M-1158's -4.6 is far outside that
 - **Status:** verified · **Dashboard:** Machine trial page: luck histogram
 
+### A4-01 · inspection lead
+
+M-1158 is the only inspection lead on the floor: it pays out on 22.3% more spins than its configured hit probability, in every month since Jan 1, and holds 3.0% against 10.0% expected. Inspect its payout configuration before any replacement decision.
+
+- **Table / query:** `python -m tasks.a4_leak -> a4_leak, a4_ticket_changes; chart a4_cumulative_residual`
+- **Result:** hit-rate z +124 (extreme in 6 of 6 months); luck z -4.6, still -4.2 without its biggest day; house win $36,165 below theo; leaves the luck band in mid-March and keeps drifting
+- **Alternative explanation tested:** Luck (persistence + biggest-day removal); its Mar 10 fault repair (hit ratio 1.218 before vs 1.226 after: no change); a wrong game config (the other Desert Gold machines are within normal range); tampering reports (none on M-1158)
+- **Limitation:** Inspection lead, not proof of wrongdoing. The pattern starts before Jan 1, so its cause is outside the data window
+- **Status:** verified · **Dashboard:** Machine trial page: leak test; $100k plan (R3f inspect)
+
+### A4-02 · finding
+
+Repairs, maintenance and moves do not change how machines pay out: across 1,214 tickets, no before/after shift in hit rate or hold reaches |z| >= 4, and the change scores look like pure noise (sd 1.06 and 1.02).
+
+- **Table / query:** `a4_ticket_changes (28 gaming days before vs after each ticket, ticket day excluded)`
+- **Result:** 0 of 1,214 tickets shift; floor-wide hit-rate z sd 1.01 without M-1158
+- **Alternative explanation tested:** Multiple testing: threshold raised to |z| >= 4 because ~6 false alarms are expected at |z| >= 3
+- **Limitation:** Tickets near the window edges have shorter comparison windows (min 7 days per side)
+- **Status:** verified · **Dashboard:** Machine trial page: leak test
+
 ### A5-01 · finding
 
 The Back Forty is the weakest zone: TPAH $11.71 vs $16.64-$21.36 elsewhere, and all 8 of its banks are in the bottom quarter of the 51 banks. Every game placed there earns 57-69% of what the same game earns floor-wide.
@@ -108,26 +128,6 @@ Comet Cash is the one game played less than its neighbours in both halves of the
 - **Limitation:** Volume relative to neighbours, not absolute; replacing a title has costs beyond this budget
 - **Status:** verified · **Dashboard:** Machine review: Game title review
 
-### A4-01 · inspection lead
-
-M-1158 is the only inspection lead on the floor: it pays out on 22.3% more spins than its configured hit probability, in every month since Jan 1, and holds 3.0% against 10.0% expected. Inspect its payout configuration before any replacement decision.
-
-- **Table / query:** `python -m tasks.a4_leak -> a4_leak, a4_ticket_changes; chart a4_cumulative_residual`
-- **Result:** hit-rate z +124 (extreme in 6 of 6 months); luck z -4.6, still -4.2 without its biggest day; house win $36,165 below theo; leaves the luck band in mid-March and keeps drifting
-- **Alternative explanation tested:** Luck (persistence + biggest-day removal); its Mar 10 fault repair (hit ratio 1.218 before vs 1.226 after: no change); a wrong game config (the other Desert Gold machines are within normal range); tampering reports (none on M-1158)
-- **Limitation:** Inspection lead, not proof of wrongdoing. The pattern starts before Jan 1, so its cause is outside the data window
-- **Status:** verified · **Dashboard:** Machine trial page: leak test; $100k plan (R3f inspect)
-
-### A4-02 · finding
-
-Repairs, maintenance and moves do not change how machines pay out: across 1,214 tickets, no before/after shift in hit rate or hold reaches |z| >= 4, and the change scores look like pure noise (sd 1.06 and 1.02).
-
-- **Table / query:** `a4_ticket_changes (28 gaming days before vs after each ticket, ticket day excluded)`
-- **Result:** 0 of 1,214 tickets shift; floor-wide hit-rate z sd 1.01 without M-1158
-- **Alternative explanation tested:** Multiple testing: threshold raised to |z| >= 4 because ~6 false alarms are expected at |z| >= 3
-- **Limitation:** Tickets near the window edges have shorter comparison windows (min 7 days per side)
-- **Status:** verified · **Dashboard:** Machine trial page: leak test
-
 ### A6-01 · finding
 
 Moving a machine to a stronger bank raises its play value, but by an uncertain amount: across the 3 moves to stronger banks, TPAH rose $5.58/h on average net of the floor trend, capturing about half (52%) of the predicted bank gap. The one Back Forty -> Main Entrance move more than doubled TPAH ($14.00 -> $32.14/h).
@@ -148,6 +148,16 @@ The manager's 10 earned $554k less than a typical machine. Location explains $20
 - **Limitation:** Typical machine = median availability and median TPAH; bank peer medians from 4-7 machines; location piece includes the walkway closure months
 - **Status:** verified · **Dashboard:** Machine trial page: decomposition (centerpiece)
 
+### A9-01 · finding
+
+None of the manager's 10 is clearly weak because of the machine itself. M-1179 is borderline (play 0.78x its neighbours, close to the 0.75-0.85 band) and should be reviewed again; the rest are explained by location (the largest single cause, 37% of the $553,702 combined shortfall), the game's payback setting, short time on the floor, or a payout pattern to inspect.
+
+- **Table / query:** `machine_verdicts, a9_list_comparison, a8_decomposition`
+- **Result:** Verdict for M-1179 is 'Borderline' in Jan-Jun, Jan-Mar and Apr-Jun (it changed from 'Truly weak' only because it sat on a single cut-off)
+- **Alternative explanation tested:** Period sensitivity tested: verdicts recomputed for Jan-Mar, Apr-Jun and Feb-May; the closure is not blamed on machines because each is compared with same-bank neighbours over the same days
+- **Limitation:** Thresholds (0.7 peer index; 0.75-0.85 borderline band; 60 days) are judgement calls, now with a band rather than a single cut-off
+- **Status:** verified · **Dashboard:** Summary; Machine review
+
 ### A11-01 · finding
 
 No machine loses money with average luck: every machine's theo exceeds its supplied costs, and no leased machine's lease + service cost exceeds its theo. 8 of the manager's 10 are leased; on expected contribution per available hour they are 8 of the floor's bottom 10, still earning $3.78-$7.27/h.
@@ -158,15 +168,15 @@ No machine loses money with average luck: every machine's theo exceeds its suppl
 - **Limitation:** Supplied costs are partial (no rent, tax, depreciation, full staffing): contribution after supplied costs only
 - **Status:** verified · **Dashboard:** $100k plan (R3c replacement economics)
 
-### A9-01 · finding
+### A12-01 · finding
 
-None of the manager's 10 is clearly weak because of the machine itself. M-1179 is borderline (play 0.78x its neighbours, close to the 0.75-0.85 band) and should be reviewed again; the rest are explained by location (the largest single cause, 37% of the $553,702 combined shortfall), the game's payback setting, short time on the floor, or a payout pattern to inspect.
+Across the floor, machines are very similar once location, game and manufacturer are allowed for: 90% earn between 0.93 and 1.05 of expectation. Only 2 of 308 consistently earn more than 10% less, in both halves: M-1184, M-1154, both Jackpot Summit in the Back Forty. Jackpot Summit runs at 0.83-0.91 of expectation in the Back Forty but 0.99-1.09 elsewhere, so the remedy is where the game stands. 17 machines are on a watch list, 14 of them in the Back Forty.
 
-- **Table / query:** `machine_verdicts, a9_list_comparison, a8_decomposition`
-- **Result:** Verdict for M-1179 is 'Borderline' in Jan-Jun, Jan-Mar and Apr-Jun (it changed from 'Truly weak' only because it sat on a single cut-off)
-- **Alternative explanation tested:** Period sensitivity tested: verdicts recomputed for Jan-Mar, Apr-Jun and Feb-May; the closure is not blamed on machines because each is compared with same-bank neighbours over the same days
-- **Limitation:** Thresholds (0.7 peer index; 0.75-0.85 borderline band; 60 days) are judgement calls, now with a band rather than a single cut-off
-- **Status:** verified · **Dashboard:** Summary; Machine review
+- **Table / query:** `python -m tasks.a12_floor_screen -> a12_floor_screen (actual vs M6-expected expected win per available hour)`
+- **Result:** Underperformers' combined shortfall $19,423 of expected win over Jan-Jun; ratio spread (sd) 0.040
+- **Alternative explanation tested:** Consistency: required in the whole period and in each half; luck and downtime removed (theo per available hour); game-location fit: the same game's other machines in the same zone
+- **Limitation:** Expectation is fitted on the same period (in-sample); thresholds 0.90 / 0.93 are judgement calls; machines with < 60 days not judged
+- **Status:** verified · **Dashboard:** Underperforming machines; Summary
 
 ## Q2 · Demand
 
@@ -232,26 +242,6 @@ Downtime is not what moved demand: it cost $103k of theo over six months, $12k-$
 
 ## Q3 · Downtime
 
-### C-04 · data note
-
-748 of 1207 fault tickets were typed in after the technician had already started (median ~8 minutes of paperwork lag), so 'work started - recorded' is negative for them. Wait for a technician is measured from when the machine went down.
-
-- **Table / query:** `tickets_clean (C1)`
-- **Result:** 0 missing timestamps; 0 negative stages once measured from 'opened'
-- **Alternative explanation tested:** The plan's recorded-to-start definition was rejected: negative for 62% of faults
-- **Limitation:** Recording lag is still reported separately
-- **Status:** verified · **Dashboard:** Downtime page
-
-### C-03 · finding
-
-Downtime cost about $103k of theo over six months ($95k-$113k); 98% of down hours were unplanned faults. Daily meters, hourly meters and ticket durations all reconcile at 5,021 hours.
-
-- **Table / query:** `downtime_cost, c2_downtime_totals, c3_hour_of_week`
-- **Result:** Each down hour valued with the machine's TPAH x a weekday-hour demand index (0.13-2.42)
-- **Alternative explanation tested:** Low/high: bank TPAH vs machine TPAH
-- **Limitation:** Gross of any play that moved to a neighbouring machine (C9 not done)
-- **Status:** verified · **Dashboard:** Downtime page
-
 ### C-01 · finding
 
 The repair bottleneck is waiting for a technician, and it depends on how many are on duty: on the day shift the mean wait is 0.09 h with 2 technicians, 0.73-1.52 h with 1, and 4.9 h on the 22 day-shift faults with none on duty.
@@ -270,6 +260,26 @@ Ridgeline machines fault 1.69 times per 1,000 available hours (90% interval 1.59
 - **Result:** Poisson intervals do not overlap
 - **Alternative explanation tested:** Preventive maintenance: only 3 maintenance tickets (c6_maintenance_check)
 - **Limitation:** What maintenance buys is not measurable from this data
+- **Status:** verified · **Dashboard:** Downtime page
+
+### C-03 · finding
+
+Downtime cost about $103k of theo over six months ($95k-$113k); 98% of down hours were unplanned faults. Daily meters, hourly meters and ticket durations all reconcile at 5,021 hours.
+
+- **Table / query:** `downtime_cost, c2_downtime_totals, c3_hour_of_week`
+- **Result:** Each down hour valued with the machine's TPAH x a weekday-hour demand index (0.13-2.42)
+- **Alternative explanation tested:** Low/high: bank TPAH vs machine TPAH
+- **Limitation:** Gross of any play that moved to a neighbouring machine (C9 not done)
+- **Status:** verified · **Dashboard:** Downtime page
+
+### C-04 · data note
+
+748 of 1207 fault tickets were typed in after the technician had already started (median ~8 minutes of paperwork lag), so 'work started - recorded' is negative for them. Wait for a technician is measured from when the machine went down.
+
+- **Table / query:** `tickets_clean (C1)`
+- **Result:** 0 missing timestamps; 0 negative stages once measured from 'opened'
+- **Alternative explanation tested:** The plan's recorded-to-start definition was rejected: negative for 62% of faults
+- **Limitation:** Recording lag is still reported separately
 - **Status:** verified · **Dashboard:** Downtime page
 
 ## Q4 · Tracked players
@@ -379,10 +389,3 @@ Fund: Comp policy pilot with control group x1 ($4,000); Machine inspection and p
 - **Alternative explanation tested:** Moving machines ranked next (+$2,912 July, -$5,480 low) and was not funded; two promotion weekends rejected to keep a comparison weekend and avoid cannibalisation
 - **Limitation:** Information values rest on stated probabilities (25/50/75%, 25/60/90%) and on how many issued points are redeemed
 - **Status:** verified · **Dashboard:** Recommended actions
-
-## AI-use disclosure
-
-| Who | Tool | Used for |
-| --- | --- | --- |
-| Team (shared repo) | Claude (Anthropic), via Claude Code | Planning the work, writing and testing the analysis code (`royale/`, `tasks/`, `tests/`) and the dashboard (`dashboard/`), drafting dashboard text and this appendix. Every number comes from the code in this repository and is checked by automated tests (reconciliations, leakage and budget rules). |
-| _each teammate: add a row_ | | |

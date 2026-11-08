@@ -220,3 +220,29 @@ def test_comet_cash_is_played_less_in_both_halves():
     g = read_output("a9_game_review").set_index("theme")
     assert g.loc["Comet Cash", "played_less_in_both_halves"]
     assert set(g.index[g["played_less_in_both_halves"]]) == {"Comet Cash"}
+
+
+# ---------- A12 floor-wide screen ----------
+def test_floor_screen_statuses_follow_the_rules():
+    from tasks import a12_floor_screen as f
+    s = read_output("a12_floor_screen")
+    assert set(s["status"]) <= {"Underperforms", "Watch", "In line", "Too little data"}
+    under = s[s["status"] == "Underperforms"]
+    assert (under[["ratio_whole", "ratio_first_half", "ratio_second_half"]] < f.UNDER).all().all()
+    assert (s.loc[s["status"] == "Watch", "ratio_whole"] < f.WATCH).all()
+    assert (s.loc[s["status"] == "Too little data", "days_on_floor"] < f.MIN_DAYS).all()
+    elig = s[s["status"] != "Too little data"]
+    assert abs(elig["ratio_whole"].median() - 1) < 0.02          # expectation is centred: typical machine = 1.0
+
+
+def test_floor_screen_finds_the_back_forty_jackpot_machines():
+    s = read_output("a12_floor_screen").set_index("machine_id")
+    assert s.loc["M-1184", "status"] == "Underperforms" and s.loc["M-1184", "game_location_fit_issue"]
+    assert (s.loc[s["status"] == "Underperforms", "shortfall_usd"] > 0).all()
+
+
+def test_floor_screen_works_for_a_sub_period():
+    from royale.data import load_base
+    from tasks import a12_floor_screen as f
+    q2 = f.compute(load_base("2025-04-01", "2025-06-30"))
+    assert len(q2) > 290 and q2["ratio_whole"].notna().all()
