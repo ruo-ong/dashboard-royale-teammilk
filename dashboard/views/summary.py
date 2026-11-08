@@ -36,6 +36,9 @@ def render() -> None:
         f"**Location** is the largest single cause, at **{pct(loc_share)}** of the shortfall; nine of the ten stand in the **Back Forty**, the quietest area.",
         "**Comet Cash** is the one game played less than its neighbours in both halves of the year: review the title, not single machines.",
         "**M-1158** pays out differently from its published settings and should be **inspected first**.",
+        (lambda sc: f"Across the **whole floor**, only **{(sc['status'] == 'Underperforms').sum()} of {(sc['status'] != 'Too little data').sum()}** "
+                    f"machines consistently earn more than 10% below what their location, game and maker should bring "
+                    f"({', '.join(sc.loc[sc['status'] == 'Underperforms', 'machine_id'])}); see Underperforming machines.")(out("a12_floor_screen")),
         f"We recommend **three actions** costing **{money(funded['cost'].sum())}**, and retaining **{money(kept)}**.",
     ], title="Our recommendation", more=(
         "Management proposed to replace the ten machines that earned the least between January 1 and June 30, 2025. "

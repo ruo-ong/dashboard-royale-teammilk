@@ -1,7 +1,7 @@
 # Claims & Evidence appendix
 
 Team Milk · Dashboard Royale (The Gilded Ace is fictional; its data is synthetic).
-Generated from `docs/claims_log.csv` by `python -m tasks.s1_appendix`: 36 claims.
+Generated from `docs/claims_log.csv` by `python -m tasks.s1_appendix`: 37 claims.
 Every table named below is built by `python -m tasks.run_all` into `outputs/`.
 
 ## Data notes and foundations
@@ -167,6 +167,16 @@ None of the manager's 10 is clearly weak because of the machine itself. M-1179 i
 - **Alternative explanation tested:** Period sensitivity tested: verdicts recomputed for Jan-Mar, Apr-Jun and Feb-May; the closure is not blamed on machines because each is compared with same-bank neighbours over the same days
 - **Limitation:** Thresholds (0.7 peer index; 0.75-0.85 borderline band; 60 days) are judgement calls, now with a band rather than a single cut-off
 - **Status:** verified · **Dashboard:** Summary; Machine review
+
+### A12-01 · finding
+
+Across the floor, machines are very similar once location, game and manufacturer are allowed for: 90% earn between 0.93 and 1.05 of expectation. Only 2 of 308 consistently earn more than 10% less, in both halves: M-1184, M-1154, both Jackpot Summit in the Back Forty. Jackpot Summit runs at 0.83-0.91 of expectation in the Back Forty but 0.99-1.09 elsewhere, so the remedy is where the game stands. 17 machines are on a watch list, 14 of them in the Back Forty.
+
+- **Table / query:** `python -m tasks.a12_floor_screen -> a12_floor_screen (actual vs M6-expected expected win per available hour)`
+- **Result:** Underperformers' combined shortfall $19,423 of expected win over Jan-Jun; ratio spread (sd) 0.040
+- **Alternative explanation tested:** Consistency: required in the whole period and in each half; luck and downtime removed (theo per available hour); game-location fit: the same game's other machines in the same zone
+- **Limitation:** Expectation is fitted on the same period (in-sample); thresholds 0.90 / 0.93 are judgement calls; machines with < 60 days not judged
+- **Status:** verified · **Dashboard:** Underperforming machines; Summary
 
 ## Q2 · Demand
 

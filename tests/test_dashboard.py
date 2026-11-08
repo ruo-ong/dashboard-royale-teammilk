@@ -4,7 +4,7 @@ from streamlit.testing.v1 import AppTest
 
 from royale.outputs import output_path
 
-PAGES = ["summary", "machines", "demand", "downtime", "players", "comps", "model", "plan", "methods", "estimator"]
+PAGES = ["summary", "machines", "screen", "demand", "downtime", "players", "comps", "model", "plan", "methods", "estimator"]
 SCRIPT = """
 import sys, datetime as dt
 from pathlib import Path

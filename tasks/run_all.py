@@ -26,6 +26,7 @@ ORDER = [
     "a1_manager_list", "a2_exposure", "a3_luck", "a4_leak", "a5_location", "a6_moves", "a8_decomposition", "a11_profit",
     "b_demand", "c_downtime", "b9_story",   # B and C, then the story (needs C2)
     "a9_verdicts",                           # needs B4 (closure) and C7 (chronic)
+    "a12_floor_screen",                      # floor-wide screen; uses the verdicts' flags
     "d_players", "e_comps",
     "m_model",                               # needs B2 (event uplift) for the July decision
     "m6_machine_model",                      # machine estimator; uses the July floor forecast (M5)

@@ -27,11 +27,12 @@ def run(include_estimator: bool = True) -> None:
             run_all.run(force=False)   # one build at a time; a session that waited simply finds the outputs ready
             st.cache_data.clear()
 
-    from views import comps, demand, downtime, machines, methods, model, plan, players, summary
+    from views import comps, demand, downtime, machines, methods, model, plan, players, screen, summary
     pages = {
         "summary": st.Page(summary.render, title="Summary", icon=":material/description:", default=True),
         "plan": st.Page(plan.render, title="Recommended actions", icon=":material/payments:", url_path="plan"),
         "machines": st.Page(machines.render, title="Machine review", icon=":material/fact_check:", url_path="machines"),
+        "screen": st.Page(screen.render, title="Underperforming machines", icon=":material/troubleshoot:", url_path="underperforming"),
         "demand": st.Page(demand.render, title="Visitor demand", icon=":material/trending_up:", url_path="demand"),
         "downtime": st.Page(downtime.render, title="Machine downtime", icon=":material/build:", url_path="downtime"),
         "players": st.Page(players.render, title="Loyalty members", icon=":material/group:", url_path="players"),
@@ -40,7 +41,7 @@ def run(include_estimator: bool = True) -> None:
         "methods": st.Page(methods.render, title="Methods and evidence", icon=":material/menu_book:", url_path="methods"),
     }
     groups = {"Overview": [pages["summary"], pages["plan"]],
-              "Findings": [pages["machines"], pages["demand"], pages["downtime"], pages["players"], pages["comps"]]}
+              "Findings": [pages["machines"], pages["screen"], pages["demand"], pages["downtime"], pages["players"], pages["comps"]]}
     if include_estimator:
         from views import estimator
         pages["estimator"] = st.Page(estimator.render, title="Machine estimator", icon=":material/calculate:", url_path="estimator")
